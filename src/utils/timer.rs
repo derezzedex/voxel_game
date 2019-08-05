@@ -1,13 +1,13 @@
 use std::time;
 
-pub fn to_secs(dur: time::Duration) -> f32{
-    dur.as_secs() as f32 * 1000.0 +
-    dur.subsec_nanos() as f32 / 1_000_000.0
+pub fn to_secs(dur: time::Duration) -> f64{
+    dur.as_secs() as f64 +
+    dur.subsec_nanos() as f64 / 1e6
 }
 
 pub struct UpdateTimer{
     previous: time::Instant,
-    accumulator: time::Duration,
+    pub accumulator: time::Duration,
     pub elapsed: time::Duration,
     pub max_ups: time::Duration
 }
@@ -15,7 +15,7 @@ pub struct UpdateTimer{
 impl UpdateTimer{
     pub fn new(max_ups: u64) -> UpdateTimer{
         let previous = time::Instant::now();
-        let accumulator = time::Duration::from_secs(0);
+        let accumulator = time::Duration::from_secs(1);
         let elapsed = time::Duration::from_secs(0);
         let max_ups = time::Duration::from_millis(max_ups);
 

@@ -1,5 +1,5 @@
 [package]
-name = "cave_game"
+name = "voxel_game"
 version = "0.1.0"
 authors = ["derezzedex"]
 edition = "2018"
@@ -12,3 +12,8 @@ conrod = { version = "*", features = ["winit", "glium"] }
 rayon = "*"
 specs = "*"
 specs-derive = "*"
+
+# [profile.release]
+# opt-level = 'z'
+# lto = true
+# codegen-units = 1

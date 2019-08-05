@@ -86,19 +86,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cave_game"
-version = "0.1.0"
-dependencies = [
- "cgmath 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "conrod 0.61.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "glium 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "image 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rayon 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "specs 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "specs-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1238,6 +1225,19 @@ dependencies = [
 name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "voxel_game"
+version = "0.1.0"
+dependencies = [
+ "cgmath 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "conrod 0.61.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glium 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "image 0.22.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rayon 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "specs 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "specs-derive 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "wayland-client"

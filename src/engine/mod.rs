@@ -1,19 +1,23 @@
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3],
-    pub tex_coord: [f32; 2]
+    pub color: [f32; 3]
 }
 
 impl Vertex{
-    pub const fn new(position: [f32; 3], tex_coord: [f32; 2]) -> Vertex{
+    pub const fn new(position: [f32; 3], color: [f32; 3]) -> Vertex{
         Vertex{
             position,
-            tex_coord
+            color
         }
     }
+
+    // pub fn set_coords(&mut self, tex_coord: [f32; 2]){
+    //     self.tex_coord = tex_coord;
+    // }
 }
 
-implement_vertex!(Vertex, position, tex_coord);
+implement_vertex!(Vertex, position, color);
 
 pub struct WinitDisplay(pub glium::Display);
 
@@ -30,3 +34,4 @@ impl conrod::backend::winit::WinitWindow for WinitDisplay {
 
 pub mod renderer;
 pub mod ui;
+pub mod mesh;

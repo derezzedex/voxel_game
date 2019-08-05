@@ -1,11 +1,8 @@
-#version 150
+#version 400
 
-in vec2 tex_coords;
-in vec3 colors;
-
+in vec3 frag_color;
 out vec4 color;
 
 void main() {
-    color = vec4(colors, 1.0);
-
+    color = vec4(frag_color, 1.0);
 }

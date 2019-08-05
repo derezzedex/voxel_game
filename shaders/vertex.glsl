@@ -2,17 +2,14 @@
 
 in vec3 position;
 in vec3 color;
-in vec2 tex_coord;
 
 uniform mat4 m;
 uniform mat4 v;
 uniform mat4 p;
 
-out vec2 tex_coords;
-out vec3 colors;
+out vec3 frag_color;
 
 void main() {
-    tex_coords = tex_coord;
+    frag_color = color;
     gl_Position = p * v * m * vec4(position, 1.0);
-    colors = color;
 }
