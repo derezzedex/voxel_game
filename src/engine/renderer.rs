@@ -47,19 +47,22 @@ impl<'a> Context<'a>{
         let shader_program = glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None).unwrap();
 
         let render_params = glium::DrawParameters {
-            // polygon_mode: glium::draw_parameters::PolygonMode::Line,
+            polygon_mode: glium::draw_parameters::PolygonMode::Line,
+            line_width: Some(10f32),
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,
                 write: true,
                 .. Default::default()
             },
-            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            // backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             .. Default::default()
         };
 
 
         let frame = None;
-        let mouse_grab = false;
+        let mouse_grab = true;
+        display.gl_window().window().grab_cursor(mouse_grab);
+        display.gl_window().window().hide_cursor(mouse_grab);
 
         let display = WinitDisplay(display);
 
@@ -79,6 +82,7 @@ impl<'a> Context<'a>{
 
     pub fn grab_mouse(&mut self){
         self.mouse_grab = !self.mouse_grab;
+        self.display.0.gl_window().window().grab_cursor(self.mouse_grab);
         self.display.0.gl_window().window().hide_cursor(self.mouse_grab);
     }
 
@@ -120,6 +124,11 @@ impl<'a> Context<'a>{
     pub fn draw<T: AsUniformValue, R: Uniforms>(&mut self, vb: &glium::VertexBuffer<Vertex>, ib: &glium::IndexBuffer<u32>, u: &glium::uniforms::UniformsStorage<T, R>){
         self.frame.as_mut().unwrap().draw(vb, ib, &self.shader_program, u, &self.render_params).unwrap();
     }
+
+    pub fn draw_no_indices<T: AsUniformValue, R: Uniforms>(&mut self, vb: &glium::VertexBuffer<Vertex>, ib: &glium::index::NoIndices, u: &glium::uniforms::UniformsStorage<T, R>){
+        self.frame.as_mut().unwrap().draw(vb, ib, &self.shader_program, u, &self.render_params).unwrap();
+    }
+
 
     pub fn draw_ui(&mut self){
         self.ui.draw(&self.display.0, self.frame.as_mut().unwrap());

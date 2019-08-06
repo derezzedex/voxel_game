@@ -1,5 +1,5 @@
 use crate::engine::Vertex;
-use crate::game::block::*;
+use crate::game::terrain::block::*;
 
 pub struct MeshData{
     pub vertices: Vec<Vertex>,
@@ -21,10 +21,17 @@ impl MeshData{
         }
     }
 
+    pub fn build_no_indices(&self, display: &glium::Display) -> BasicMesh{
+        BasicMesh{
+            vb: glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB"),
+            ib: glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
+        }
+    }
+
     pub fn build(&self, display: &glium::Display) -> Mesh{
         Mesh{
             vb: glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB"),
-            ib: glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices[..]).expect("Couldn't create IB")
+            ib: glium::IndexBuffer::new(display, glium::index::PrimitiveType::LinesList, &self.indices[..]).expect("Couldn't create IB")
         }
     }
 
@@ -63,6 +70,21 @@ impl MeshData{
         self.indices.extend_from_slice(&indices);
     }
 }
+
+pub struct BasicMesh{
+    vb: glium::vertex::VertexBuffer<Vertex>,
+    ib: glium::index::NoIndices,
+}
+
+impl BasicMesh{
+    pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<Vertex>{
+        &self.vb
+    }
+
+    pub fn get_ib(&self) -> &glium::index::NoIndices{
+        &self.ib
+    }
+ }
 
 pub struct Mesh{
     vb: glium::vertex::VertexBuffer<Vertex>,

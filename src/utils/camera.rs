@@ -1,7 +1,7 @@
 use glium::glutin;
 use cgmath::{Point3, Vector3, Matrix4, EuclideanSpace, InnerSpace, Zero};
 
-const SENSITIVITY: f64 = 0.05;
+const SENSITIVITY: f64 = 0.08;
 
 pub struct Camera{
     position: Point3<f64>,
