@@ -1,8 +1,9 @@
+use crate::utils::raycast::raycast2;
 use crate::engine::renderer::{Context, DEFAULT_WIDTH, DEFAULT_HEIGHT};
 use crate::utils::timer::*;
 use crate::utils::camera::Camera;
 use crate::engine::mesh::{Mesh, MeshData};
-use crate::game::terrain::chunk::{ChunkPosition};
+use crate::game::terrain::chunk::{ChunkPosition, BlockPosition};
 use crate::game::ecs::ECSManager;
 use crate::game::terrain::manager::TerrainManager;
 use crate::utils::raycast::raycast;
@@ -15,9 +16,9 @@ use crate::game::ecs::systems::*;
 use std::time::Instant;
 use std::collections::HashMap;
 
-pub struct Game<'a, 'b>{
-    context: Context<'static>,
-    ecs_manager: ECSManager<'a, 'b>,
+pub struct Game{
+    context: Context,
+    ecs_manager: ECSManager,
     terrain_manager: TerrainManager,
     player: Entity,
     camera: Camera,
@@ -25,13 +26,13 @@ pub struct Game<'a, 'b>{
     running: bool
 }
 
-impl<'a, 'b> Game<'a, 'b>{
+impl Game{
     pub fn new(title: &str) -> Self{
-        let context = Context::new(title, "shaders/vertex.glsl", "shaders/fragment.glsl");
+        let context = Context::new(title, "vertex.glsl", "fragment.glsl");
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([0., 0., 5.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
         let terrain_manager = TerrainManager::new();
 
@@ -80,7 +81,9 @@ impl<'a, 'b> Game<'a, 'b>{
         // let mesh = mesh.build(self.context.get_display());
         // self.meshes.insert(pos, mesh);
 
-        self.terrain_manager.create_chunk_at([0, -1, 0]);
+        self.terrain_manager.create_chunk_at([0, 0, 1]);
+        self.terrain_manager.create_chunk_at([0, 1, 0]);
+        self.terrain_manager.create_chunk_at([1, 0, 0]);
 
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
@@ -127,9 +130,48 @@ impl<'a, 'b> Game<'a, 'b>{
                                 // let position = position_storage.get(self.player).expect("Failed to get Player Position");
                                 // let camera_storage = world.read_storage::<components::Camera>();
                                 // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
-                                let callback = |block, face| self.terrain_manager.block_at(block, face);
-                                match raycast(self.camera.get_position().clone(), self.camera.get_front().clone(), 8., callback){
-                                    Ok((block, face)) => println!("Hit result: {:?} {:?}", block ,face),
+                                let callback = |block| self.terrain_manager.block_at(block);
+                                let pos = self.camera.get_position().clone();
+                                let front = self.camera.get_front().clone();
+                                match raycast2(pos, front, 5., callback){
+                                    Ok((block, face)) => {
+                                        println!("Hit result: {:?} {:?}", block ,face);
+                                        let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
+                                        let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
+                                        let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize).get_offset();
+                                        use std::sync::Arc;
+
+                                        if let Some(chunk) = chunk{
+                                            let c = Arc::make_mut(chunk);
+                                            println!("{:?}", block_position);
+                                            c.remove_block(block_position.x as usize, block_position.y as usize, block_position.z as usize);
+                                        }
+                                    },
+                                    _ => (),
+                                }
+                            }else if button == &glium::glutin::MouseButton::Right{
+                                // let position_storage = world.read_storage::<components::Position>();
+                                // let position = position_storage.get(self.player).expect("Failed to get Player Position");
+                                // let camera_storage = world.read_storage::<components::Camera>();
+                                // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
+                                let callback = |block| self.terrain_manager.block_at(block);
+                                let pos = self.camera.get_position().clone();
+                                let front = self.camera.get_front().clone();
+                                match raycast2(pos, front, 5., callback){
+                                    Ok((block, face)) => {
+                                        println!("Hit result: {:?} {:?}", block ,face);
+                                        let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
+                                        let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
+                                        let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize);
+                                        let block_offset = block_position.get_offset();
+                                        use std::sync::Arc;
+
+                                        if let Some(chunk) = chunk{
+                                            let c = Arc::make_mut(chunk);
+                                            println!("{:?}", block_position);
+                                            self.terrain_manager.place_block(block, face);
+                                        }
+                                    },
                                     _ => (),
                                 }
                             }
@@ -253,6 +295,49 @@ impl<'a, 'b> Game<'a, 'b>{
             .expect("Couldn't cast View f64 to f32")
             .into();
 
+        // TODO: Draw line from origin + origin+front and see how it behaves, there may be a problem with the perspective/view matrix!
+        // TODO: Fix the raycast from the results of the debugging
+        {
+            use crate::engine::Vertex;
+            use glium::Surface;
+
+            let mut front = Vector3::zero();
+            {
+                let mut camera_storage = self.ecs_manager.get_mut_world().write_storage::<components::Camera>();
+                let mut camera = camera_storage.get_mut(self.player).expect("Failed to get Player Camera");
+                front = camera.looking_at;
+            }
+
+            let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
+            let position = position_storage.get(self.player).expect("Failed to get Player Position");
+            let mut pos_vector = Vector3::new(position.0.x, position.0.y, position.0.z);
+            // let mut pos_vector = Vector3::zero();
+            // pos_vector.x += 2.;
+            // pos_vector.y += 2.;
+            // pos_vector.z += 2.;
+
+            use cgmath::InnerSpace;
+            // println!("Front: {:?}", front.magnitude());
+            let dest = (pos_vector + front).cast::<f32>().expect("Coudln't cast Dest to f32!");
+
+            // let pos_vector = Vector3::zero();
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::zero()).into();
+            let uniforms = uniform!{
+                m: model,
+                v: view,
+                p: perspective
+            };
+
+            let shape = vec![
+                Vertex::new([ pos_vector.x as f32, pos_vector.y as f32 + 5., pos_vector.z as f32], [ 1.0, 0.0, 0.0]),
+                Vertex::new([ dest.x, dest.y, dest.z ], [ 1.0, 0.0, 0.0])];
+
+            // println!("Shape: {:#?}", &shape);
+            let mesh = MeshData::new_raw(shape, vec![]).build_no_indices(self.context.get_display());
+
+            self.context.draw_no_indices(mesh.get_vb(), mesh.get_ib(), &uniforms);
+        }
+
         self.terrain_manager.update_received_meshes(self.context.get_display());
         for (pos, mesh) in self.terrain_manager.get_meshes(){
             let (x, y, z) = (pos.x as f32, pos.y as f32, pos.z as f32);
@@ -266,42 +351,10 @@ impl<'a, 'b> Game<'a, 'b>{
             };
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
-
-            {
-                use crate::engine::Vertex;
-                let origin = self.camera.get_position();
-                let direction = self.camera.get_front();
-                let end = origin + direction;
-
-                // let points = [
-                //     Vertex::new([origin.x as f32, origin.y as f32, origin.z as f32], [1., 0., 0.]),
-                //     Vertex::new([end.x as f32, end.y as f32, end.z as f32], [1., 0., 0.])
-                // ];
-
-                let points = [
-                    Vertex::new([0.1, -100., 0.1], [1., 0., 0.]),
-                    Vertex::new([0.1, 100., 0.1], [1., 0., 0.])
-                ];
-
-                let mesh = MeshData::new_raw(points.to_vec(), Vec::new()).build_no_indices(self.context.get_display());
-
-                let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.)).into();
-
-                let uniforms = uniform!{
-                    m: model,
-                    v: view,
-                    p: perspective
-                };
-
-                self.context.draw_no_indices(mesh.get_vb(), mesh.get_ib(), &uniforms);
-            }
         }
 
-        // TODO: Draw line from origin + origin+front and see how it behaves, there may be a problem with the perspective/view matrix!
-        // TODO: Fix the raycast from the results of the debugging
-
         // ui
-        self.context.ui.debug.set_fps(to_secs(self.timer.max_ups)/1e3);
+        self.context.ui.debug.set_fps(to_secs(self.timer.elapsed));
         self.context.draw_ui();
 
         self.context.finish_frame();

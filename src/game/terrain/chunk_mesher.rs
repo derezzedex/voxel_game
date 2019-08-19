@@ -30,7 +30,7 @@ impl ChunkMesher{
         self.receiver.try_iter()
     }
 
-    pub fn mesh(&self, position: ChunkPosition, chunk: Arc<Chunk>, neighbors: [Option<Arc<Chunk>>; 6]){
+    pub fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6]){
 
         let sender = self.sender.clone();
         self.threadpool.install(move ||{
@@ -43,36 +43,36 @@ impl ChunkMesher{
                         if block_type == BlockType::Air{
                             continue;
                         }
-                        if chunk.get_neighbor(x, y, z, Direction::North, neighbors[0].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::North, neighbors[0]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::North);
                             mesh.add_face(face_data);
 
                         }
-                        if chunk.get_neighbor(x, y, z, Direction::South, neighbors[1].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::South, neighbors[1]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::South);
                             mesh.add_face(face_data);
 
                         }
 
-                        if chunk.get_neighbor(x, y, z, Direction::East, neighbors[2].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::East, neighbors[2]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::East);
                             mesh.add_face(face_data);
 
                         }
 
-                        if chunk.get_neighbor(x, y, z, Direction::West, neighbors[3].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::West, neighbors[3]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::West);
                             mesh.add_face(face_data);
 
                         }
 
-                        if chunk.get_neighbor(x, y, z, Direction::Up, neighbors[4].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::Up, neighbors[4]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::Up);
                             mesh.add_face(face_data);
 
                         }
 
-                        if chunk.get_neighbor(x, y, z, Direction::Down, neighbors[5].clone()) == BlockType::Air{
+                        if chunk.get_neighbor(x, y, z, Direction::Down, neighbors[5]) == BlockType::Air{
                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::Down);
                             mesh.add_face(face_data);
 

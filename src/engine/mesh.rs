@@ -24,14 +24,14 @@ impl MeshData{
     pub fn build_no_indices(&self, display: &glium::Display) -> BasicMesh{
         BasicMesh{
             vb: glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB"),
-            ib: glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
+            ib: glium::index::NoIndices(glium::index::PrimitiveType::LinesList),
         }
     }
 
     pub fn build(&self, display: &glium::Display) -> Mesh{
         Mesh{
             vb: glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB"),
-            ib: glium::IndexBuffer::new(display, glium::index::PrimitiveType::LinesList, &self.indices[..]).expect("Couldn't create IB")
+            ib: glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices[..]).expect("Couldn't create IB")
         }
     }
 

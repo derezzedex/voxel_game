@@ -27,11 +27,12 @@ impl TerrainManager{
             meshes
         }
     }
-    pub fn block_at(&self, position: Point3<f64>, face: Vector3<f64>) -> bool{
+
+    pub fn block_at(&self, position: Point3<f64>) -> bool{
         let chunk_position = ChunkPosition::new(position.x as isize >> 4, position.y as isize >> 4, position.z as isize >> 4);
         if let Some(chunk) = self.chunks.get(&chunk_position){
-            let (x, y, z) = ((position.x as isize).abs(), (position.y as isize).abs(), (position.z as isize).abs());
-            let (x, y, z) = ((x >> 4) + x%16, (y >> 4) + y%16, (z >> 4) + z%16);
+            let block_position = BlockPosition::new(position.x as isize, position.y as isize, position.z as isize).get_offset();
+            let (x, y, z) = (block_position.x as usize, block_position.y as usize, block_position.z as usize);
 
             return chunk.get_blocks()[x as usize][y as usize][z as usize] != BlockType::Air;
         }
@@ -39,23 +40,19 @@ impl TerrainManager{
         false
     }
 
-    pub fn get_chunk(&self, position: ChunkPosition) -> Option<Arc<Chunk>>{
-        if let Some(chunk) = self.chunks.get(&position){
-            return Some(chunk.clone());
-        }else{
-            return None;
-        }
+    pub fn place_block(&mut self, position: Point3<f64>, face: Vector3<f64>){
+        let block = self.block_at(position);
     }
 
-    pub fn get_mut_chunk(&mut self, position: ChunkPosition) -> Option<Arc<Chunk>>{
-        if let Some(chunk) = self.chunks.get_mut(&position){
-            return Some(chunk.clone());
-        }else{
-            return None;
-        }
+    pub fn get_chunk(&self, position: ChunkPosition) -> Option<&Arc<Chunk>>{
+        self.chunks.get(&position)
     }
 
-    fn get_neighbors(&self, position: ChunkPosition) -> [Option<Arc<Chunk>>; 6]{
+    pub fn get_mut_chunk(&mut self, position: ChunkPosition) -> Option<&mut Arc<Chunk>>{
+        self.chunks.get_mut(&position)
+    }
+
+    fn get_neighbors(&self, position: ChunkPosition) -> [Option<&Arc<Chunk>>; 6]{
         let north = self.get_chunk(ChunkPosition::new(position.x, position.y, position.z + 1));
         let south = self.get_chunk(ChunkPosition::new(position.x, position.y, position.z - 1));
 
@@ -83,7 +80,7 @@ impl TerrainManager{
 
     fn dirty_neighbors(&mut self, position: ChunkPosition){
         let mut neighbors = self.get_neighbors_position(position);
-        for neighbor_position in neighbors.into_iter(){
+        for neighbor_position in neighbors.iter(){
             if let Some(chunk) = self.chunks.get(neighbor_position){
                 chunk.flag_dirty();
             }
@@ -105,16 +102,20 @@ impl TerrainManager{
         for (pos, chunk) in &self.chunks{
             if chunk.is_dirty(){
                 let neighbors = self.get_neighbors(*pos);
-                self.mesh(*pos, chunk.clone(), neighbors);
+                self.mesh(*pos, chunk, neighbors);
 
                 chunk.flag_clean();
             }
         }
     }
 
-    fn mesh(&self, position: ChunkPosition, chunk: Arc<Chunk>, neighbors: [Option<Arc<Chunk>>; 6]){
+    fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6]){
         self.mesher.mesh(position, chunk, neighbors);
     }
+
+    // pub fn update_chunk(&mut self, position: ChunkPosition, chunk: &mut Chunk){
+    //     self.chunks.entry(position).and_modify(|c| c = chunk);
+    // }
 
     pub fn update_received_meshes(&mut self, display: &glium::Display){
         // let mut flagged_clean = Vec::new();

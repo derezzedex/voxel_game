@@ -5,12 +5,12 @@ pub mod systems;
 
 use systems::*;
 
-pub struct ECSManager<'a, 'b>{
+pub struct ECSManager{
     world: World,
-    dispatcher: Dispatcher<'a, 'b>
+    dispatcher: Dispatcher<'static, 'static>
 }
 
-impl<'a, 'b> ECSManager<'a, 'b>{
+impl ECSManager{
     pub fn new() -> Self{
         let mut world = World::new();
         let mut dispatcher = DispatcherBuilder::new()

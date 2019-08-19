@@ -1,6 +1,39 @@
+use cgmath::Vector3;
 use crate::game::terrain::block::*;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+pub const CHUNK_SIZE: usize = 16;
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub struct BlockPosition{
+    pub x: isize,
+    pub y: isize,
+    pub z: isize
+}
+
+impl BlockPosition{
+    pub fn new(x: isize, y: isize, z: isize) -> Self{
+        Self{
+            x,
+            y,
+            z
+        }
+    }
+
+    pub fn get_offset(&self) -> Self{
+        let chunk_size = CHUNK_SIZE as isize;
+        let x = ((self.x % chunk_size) + chunk_size) % chunk_size;
+        let y = ((self.y % chunk_size) + chunk_size) % chunk_size;
+        let z = ((self.z % chunk_size) + chunk_size) % chunk_size;
+
+        Self{
+            x,
+            y,
+            z
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct ChunkPosition{
@@ -19,7 +52,6 @@ impl ChunkPosition{
     }
 }
 
-pub const CHUNK_SIZE: usize = 16;
 pub type ChunkBlocks = [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 
 #[derive(Clone, Debug)]
@@ -42,6 +74,11 @@ impl Chunk{
     //     &self.position
     // }
 
+    pub fn remove_block(&mut self, x: usize, y: usize, z: usize){
+        self.blocks[x][y][z] = BlockType::Air;
+        self.flag_dirty();
+    }
+
     pub fn get_blocks(&self) -> &ChunkBlocks{
         &self.blocks
     }
@@ -62,7 +99,7 @@ impl Chunk{
         self.dirty.store(false, Ordering::Relaxed);
     }
 
-    pub fn get_neighbor(&self, x: usize, y: usize, z: usize, dir: Direction, neighbor: Option<Arc<Chunk>>) -> BlockType{
+    pub fn get_neighbor(&self, x: usize, y: usize, z: usize, dir: Direction, neighbor: Option<&Arc<Chunk>>) -> BlockType{
         match dir{
             Direction::North => {
                 if (z + 1 >= CHUNK_SIZE){

@@ -10,18 +10,19 @@ use crate::engine::ui::Ui;
 pub const DEFAULT_WIDTH: u32 = 800;
 pub const DEFAULT_HEIGHT: u32 = 600;
 
-pub struct Context<'a>{
+pub struct Context{
     pub events_loop: glium::glutin::EventsLoop,
     pub ui: Ui,
     pub display: WinitDisplay,
     pub shader_program: glium::Program,
+    simple_program: glium::Program,
     window_dimensions: (u32, u32),
     mouse_grab: bool,
-    render_params: glium::DrawParameters<'a>,
+    render_params: glium::DrawParameters<'static>,
     pub frame: Option<glium::Frame>
 }
 
-impl<'a> Context<'a>{
+impl Context{
     pub fn new(title: &str, vert: &str, frag: &str) -> Self{
         let window_dimensions = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
@@ -39,16 +40,24 @@ impl<'a> Context<'a>{
 
         let cargo_dir = env!("CARGO_MANIFEST_DIR");
 
-        let vertex_shader_src = fs::read_to_string(&Path::new(cargo_dir).join(vert))
+        // NORMAL SHADER
+        let vertex_shader_src = fs::read_to_string(&Path::new(cargo_dir).join("shaders").join(vert))
             .expect("Something went wrong reading the file");
-        let fragment_shader_src = fs::read_to_string(&Path::new(cargo_dir).join(frag))
+        let fragment_shader_src = fs::read_to_string(&Path::new(cargo_dir).join("shaders").join(frag))
             .expect("Something went wrong reading the file");
-
         let shader_program = glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None).unwrap();
 
+        // TESTING SHADER
+        println!("{:?}", &Path::new(cargo_dir).join("simple").join(vert));
+        let vertex_shader_src = fs::read_to_string(&Path::new(cargo_dir).join("shaders").join("simple").join(vert))
+            .expect("Something went wrong reading the file");
+        let fragment_shader_src = fs::read_to_string(&Path::new(cargo_dir).join("shaders").join("simple").join(frag))
+            .expect("Something went wrong reading the file");
+        let simple_program = glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None).unwrap();
+
         let render_params = glium::DrawParameters {
-            polygon_mode: glium::draw_parameters::PolygonMode::Line,
-            line_width: Some(10f32),
+            polygon_mode: glium::draw_parameters::PolygonMode::Fill,
+            // line_width: Some(10f32),
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,
                 write: true,
@@ -76,6 +85,7 @@ impl<'a> Context<'a>{
             render_params,
             ui,
             shader_program,
+            simple_program,
             frame
         }
     }
@@ -129,6 +139,13 @@ impl<'a> Context<'a>{
         self.frame.as_mut().unwrap().draw(vb, ib, &self.shader_program, u, &self.render_params).unwrap();
     }
 
+    pub fn simple_draw(&mut self, vb: &glium::VertexBuffer<Vertex>, ib: &glium::index::NoIndices){
+        self.frame.as_mut().unwrap().draw(vb, ib, &self.simple_program, &glium::uniforms::EmptyUniforms, &self.render_params).unwrap();
+    }
+
+    pub fn get_program(&self) -> &glium::Program{
+        &self.shader_program
+    }
 
     pub fn draw_ui(&mut self){
         self.ui.draw(&self.display.0, self.frame.as_mut().unwrap());
