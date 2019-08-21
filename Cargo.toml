@@ -12,6 +12,7 @@ conrod = { version = "*", features = ["winit", "glium"] }
 rayon = "*"
 specs = "*"
 specs-derive = "*"
+noise = "*"
 
 # [profile.release]
 # opt-level = 'z'

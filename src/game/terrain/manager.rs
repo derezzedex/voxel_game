@@ -1,7 +1,9 @@
 use crate::utils::texture::TextureAtlas;
 use std::sync::Arc;
+use std::time::Instant;
 use std::collections::HashMap;
 use cgmath::{Point3, Vector3};
+use noise::{NoiseFn, Perlin, Seedable};
 
 use crate::game::terrain::block::*;
 use crate::game::terrain::chunk::*;
@@ -9,24 +11,33 @@ use crate::engine::mesh::*;
 use crate::game::terrain::chunk_mesher::ChunkMesher;
 use crate::game::terrain::block_registry::BlockRegistry;
 
+use rayon::prelude::*;
+use rayon::iter::ParallelBridge;
+
 pub type ChunkHashMap = HashMap<ChunkPosition, Arc<Chunk>>;
 pub type MeshHashMap = HashMap<ChunkPosition, Mesh>;
 pub struct TerrainManager{
     mesher: ChunkMesher,
     chunks: ChunkHashMap,
-    meshes: MeshHashMap
+    meshes: MeshHashMap,
+    position: ChunkPosition,
+    noise: Perlin
 }
 
 impl TerrainManager{
-    pub fn new() -> Self{
+    pub fn new(position: ChunkPosition) -> Self{
         let mesher = ChunkMesher::new(1);
         let meshes = HashMap::new();
         let chunks = HashMap::new();
 
+        let noise = Perlin::new().set_seed(1102130);
+
         Self{
             mesher,
             chunks,
-            meshes
+            meshes,
+            position,
+            noise
         }
     }
 
@@ -59,6 +70,43 @@ impl TerrainManager{
 
     pub fn get_mut_chunk(&mut self, position: ChunkPosition) -> Option<&mut Arc<Chunk>>{
         self.chunks.get_mut(&position)
+    }
+
+    pub fn update_chunk_area(&mut self, position: ChunkPosition, view_distance: isize){
+        if self.position != position{
+            // println!("Updating...");
+            let timer = Instant::now();
+            // ------------ REMOVE OUT OF SIGHT CHUNKS
+            let mut remove_list = Vec::new();
+            for (chunk_pos, _) in &self.chunks{
+                if !(chunk_pos.x > position.x - view_distance && chunk_pos.y > position.y - view_distance && chunk_pos.z > position.z - view_distance
+                    &&  chunk_pos.x < position.x + view_distance && chunk_pos.y < position.y + view_distance && chunk_pos.z < position.z + view_distance){
+
+                    remove_list.push(chunk_pos.clone());
+                }
+            }
+
+            for pos in remove_list{
+                self.remove_chunk(pos);
+            }
+
+            // LOAD IN SIGHT CHUNKS
+            for x in (position.x - view_distance)..(position.x + view_distance){
+                for y in (position.y - view_distance)..(position.y + view_distance){
+                    for z in (position.z - view_distance)..(position.z + view_distance){
+
+                        let chunk_pos = ChunkPosition::new(x, y, z);
+                        if !self.chunks.contains_key(&chunk_pos){
+                            self.create_chunk_at([x, y, z]);
+                        }
+
+                    }
+                }
+            }
+
+            self.position = position;
+            println!("Update time: {:?}", timer.elapsed());
+        }
     }
 
     fn get_neighbors(&self, position: ChunkPosition) -> [Option<&Arc<Chunk>>; 6]{
@@ -101,9 +149,44 @@ impl TerrainManager{
         self.chunks.insert(position, chunk);
     }
 
+    pub fn remove_chunk(&mut self, position: ChunkPosition){
+        self.dirty_neighbors(position);
+        self.chunks.remove(&position);
+        self.meshes.remove(&position);
+    }
+
+    pub fn generate_chunk(&mut self, position: ChunkPosition, mut chunk: Chunk) -> Chunk{
+        for z in 0..CHUNK_SIZE{
+            for y in 0..CHUNK_SIZE{
+                for x in 0..CHUNK_SIZE{
+                    let (mut nx, mut nz) = ((position.x * CHUNK_SIZE as isize + x as isize) as f64, (position.z * CHUNK_SIZE as isize + z as isize) as f64);
+                    nx /= CHUNK_SIZE as f64;
+                    // nx -= 0.5;
+                    nz /= CHUNK_SIZE as f64;
+                    // nz -= 0.5;
+
+                    let mut h =
+                         6. * self.noise.get([1. * nx, 1.* nz]);
+                    h += 2. * self.noise.get([2.01 * nx, 2.01 * nz]);
+                    h += 1. * self.noise.get([4.01 * nx, 4.01 * nz]);
+                    h += 0.5 * self.noise.get([2.1 * nx, 2.1 * nz]);
+
+                    if (position.y * CHUNK_SIZE as isize + y as isize) as f64 > h{
+                        continue;
+                    }else{
+                        chunk.get_mut_blocks()[x][y][z] = BlockType::Dirt;
+                    }
+                }
+            }
+        }
+
+        chunk
+    }
+
     pub fn create_chunk_at(&mut self, position: [isize; 3]){
         let position = ChunkPosition::new(position[0], position[1], position[2]);
-        let chunk = Chunk::new(BlockType::Dirt);
+        let mut chunk = Chunk::new(BlockType::Air);
+        let chunk = self.generate_chunk(position, chunk);
         self.add_chunk(position, Arc::new(chunk));
     }
 

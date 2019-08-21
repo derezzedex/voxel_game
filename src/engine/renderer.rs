@@ -56,14 +56,14 @@ impl Context{
         let simple_program = glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None).unwrap();
 
         let render_params = glium::DrawParameters {
-            polygon_mode: glium::draw_parameters::PolygonMode::Fill,
+            // polygon_mode: glium::draw_parameters::PolygonMode::Fill,
             // line_width: Some(10f32),
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,
                 write: true,
                 .. Default::default()
             },
-            // backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             .. Default::default()
         };
 

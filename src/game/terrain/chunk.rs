@@ -69,10 +69,6 @@ impl Chunk{
             dirty: Arc::new(AtomicBool::new(true)),
         }
     }
-    //
-    // pub fn get_position(&self) -> &ChunkPosition{
-    //     &self.position
-    // }
 
     pub fn remove_block(&mut self, x: usize, y: usize, z: usize){
         self.blocks[x][y][z] = BlockType::Air;

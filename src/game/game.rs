@@ -39,12 +39,12 @@ impl Game{
 
         let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
-        let terrain_manager = TerrainManager::new();
+        let mut terrain_manager = TerrainManager::new(ChunkPosition::new(0, -1, 0));
+        terrain_manager.update_chunk_area(ChunkPosition::new(0, 0, 0), 8);
 
         // Create and setup the texture atlas
         let cargo = env!("CARGO_MANIFEST_DIR");
         let path = Path::new(cargo).join("res").join("img").join("texture").join("atlas.png");
-        println!("{:?}", &path);
         let texture_atlas = TextureAtlas::new(context.get_display(), &path, 16);
 
         // Create block registry, which contains the block proprierties
@@ -294,16 +294,17 @@ impl Game{
             camera.looking_at = self.camera.get_front();
         }
 
-        self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
-
         self.ecs_manager.run_systems();
 
         // sync player position with camera
         let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
         let position = position_storage.get(self.player).expect("Failed to get Player Position");
         self.camera.set_positon(position.0);
-
         self.camera.update();
+
+        let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
+        self.terrain_manager.update_chunk_area(position, 8);
+        self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
     }
 
     pub fn render(&mut self){
@@ -311,7 +312,7 @@ impl Game{
 
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
 
-        let texture = self.texture_atlas.get_texture();
+        let texture = self.texture_atlas.get_texture().sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest);
 
         let perspective: [[f32; 4]; 4] = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(90f64)), self.context.get_aspect_ratio(), 0.1f64, 1024f64)
             .cast::<f32>() // Casts internal f64 to f32, since 'double' support in video grahics card is fairly recent...
@@ -352,8 +353,7 @@ impl Game{
             let uniforms = uniform!{
                 m: model,
                 v: view,
-                p: perspective,
-                t: texture
+                p: perspective
             };
 
             let shape = vec![

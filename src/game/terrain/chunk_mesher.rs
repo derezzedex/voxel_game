@@ -52,7 +52,7 @@ impl ChunkMesher{
                         for i in 0..directions.len(){
                             if chunk.get_neighbor(x, y, z, directions[i], neighbors[i]) == BlockType::Air{
                                 let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
-                                let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::North, *coords);
+                                let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
                                 mesh.add_face(face_data);
 
                             }
