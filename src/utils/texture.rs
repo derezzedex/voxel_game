@@ -1,5 +1,7 @@
 use std::io::Cursor;
+use std::path::Path;
 
+#[derive(Copy, Clone, Debug)]
 pub struct TextureCoords{
     top_left: (f32, f32),
     top_right: (f32, f32),
@@ -16,6 +18,10 @@ impl TextureCoords{
             bottom_right: br
         }
     }
+
+    pub fn as_vec(&self) -> [(f32, f32); 4]{
+        [self.top_left, self.top_right, self.bottom_left, self.bottom_right]
+    }
 }
 
 pub struct TextureAtlas{
@@ -25,10 +31,10 @@ pub struct TextureAtlas{
 }
 
 impl TextureAtlas{
-    pub fn new(display: &glium::Display, path: &str, tile_size: u32) -> TextureAtlas{
-        let data = std::fs::read_to_string(path).expect("Couldn't load texture!");
+    pub fn new(display: &glium::Display, path: &Path, tile_size: u32) -> TextureAtlas{
+        let data = std::fs::read(path).expect("Couldn't read texture!");
         let bytes = Cursor::new(&data[..]);
-        let image = image::load(bytes, image::PNG).unwrap().to_rgba();
+        let image = image::load(bytes, image::PNG).expect("Couldn't load texture!").to_rgba();
         let dimensions = image.dimensions();
 
         let raw_texture = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), dimensions);
@@ -38,6 +44,10 @@ impl TextureAtlas{
             dimensions,
             tile_size
         }
+    }
+
+    pub fn get_texture(&self) -> &glium::texture::Texture2d{
+        &self.texture
     }
 
     pub fn get_coords(&self, xy: (u32, u32)) -> TextureCoords{

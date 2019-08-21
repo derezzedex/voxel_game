@@ -79,6 +79,11 @@ impl Chunk{
         self.flag_dirty();
     }
 
+    pub fn place_block(&mut self, x: usize, y: usize, z: usize, block: BlockType){
+        self.blocks[x][y][z] = block;
+        self.flag_dirty();
+    }
+
     pub fn get_blocks(&self) -> &ChunkBlocks{
         &self.blocks
     }

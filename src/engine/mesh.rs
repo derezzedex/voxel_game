@@ -52,11 +52,12 @@ impl MeshData{
             Direction::Down => [0.58 * 0.4, 0.45 * 0.4, 0.37 * 0.4],
         };
 
-        for vertex in &mut vertices {
+        let coords = face.get_coordinates().as_vec();
+        for (i, vertex) in vertices.iter_mut().enumerate() {
             vertex.position[0] += face.get_position()[0] as f32;
             vertex.position[1] += face.get_position()[1] as f32;
             vertex.position[2] += face.get_position()[2] as f32;
-            vertex.color = color;
+            vertex.color = [coords[i].0, coords[i].1, vertex.color[2]];
         }
 
         let mut indices = INDICES;

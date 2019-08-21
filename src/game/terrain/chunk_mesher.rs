@@ -1,3 +1,5 @@
+use crate::game::terrain::block_registry::BlockRegistry;
+use crate::utils::texture::TextureAtlas;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::Arc;
@@ -30,7 +32,7 @@ impl ChunkMesher{
         self.receiver.try_iter()
     }
 
-    pub fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6]){
+    pub fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
 
         let sender = self.sender.clone();
         self.threadpool.install(move ||{
@@ -40,43 +42,22 @@ impl ChunkMesher{
                 for y in 0..CHUNK_SIZE{
                     for z in 0..CHUNK_SIZE{
                         let block_type = chunk.get_blocks()[x][y][z];
+
                         if block_type == BlockType::Air{
                             continue;
                         }
-                        if chunk.get_neighbor(x, y, z, Direction::North, neighbors[0]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::North);
-                            mesh.add_face(face_data);
 
-                        }
-                        if chunk.get_neighbor(x, y, z, Direction::South, neighbors[1]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::South);
-                            mesh.add_face(face_data);
+                        let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
 
-                        }
+                        for i in 0..directions.len(){
+                            if chunk.get_neighbor(x, y, z, directions[i], neighbors[i]) == BlockType::Air{
+                                let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
+                                let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::North, *coords);
+                                mesh.add_face(face_data);
 
-                        if chunk.get_neighbor(x, y, z, Direction::East, neighbors[2]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::East);
-                            mesh.add_face(face_data);
-
+                            }
                         }
 
-                        if chunk.get_neighbor(x, y, z, Direction::West, neighbors[3]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::West);
-                            mesh.add_face(face_data);
-
-                        }
-
-                        if chunk.get_neighbor(x, y, z, Direction::Up, neighbors[4]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::Up);
-                            mesh.add_face(face_data);
-
-                        }
-
-                        if chunk.get_neighbor(x, y, z, Direction::Down, neighbors[5]) == BlockType::Air{
-                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, Direction::Down);
-                            mesh.add_face(face_data);
-
-                        }
                     }
                 }
             }

@@ -1,18 +1,21 @@
-use crate::utils::raycast::raycast2;
 use crate::engine::renderer::{Context, DEFAULT_WIDTH, DEFAULT_HEIGHT};
 use crate::utils::timer::*;
 use crate::utils::camera::Camera;
 use crate::engine::mesh::{Mesh, MeshData};
 use crate::game::terrain::chunk::{ChunkPosition, BlockPosition};
+use crate::game::terrain::block::{BlockType, Direction};
 use crate::game::ecs::ECSManager;
 use crate::game::terrain::manager::TerrainManager;
 use crate::utils::raycast::raycast;
+use crate::utils::texture::{TextureAtlas, TextureCoords};
+use crate::game::terrain::block_registry::*;
 
 use cgmath::{Vector3, Point3, Zero};
 use specs::prelude::*;
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
 
+use std::path::Path;
 use std::time::Instant;
 use std::collections::HashMap;
 
@@ -20,6 +23,8 @@ pub struct Game{
     context: Context,
     ecs_manager: ECSManager,
     terrain_manager: TerrainManager,
+    registry: BlockRegistry,
+    texture_atlas: TextureAtlas,
     player: Entity,
     camera: Camera,
     timer: UpdateTimer,
@@ -35,6 +40,33 @@ impl Game{
         let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
         let terrain_manager = TerrainManager::new();
+
+        // Create and setup the texture atlas
+        let cargo = env!("CARGO_MANIFEST_DIR");
+        let path = Path::new(cargo).join("res").join("img").join("texture").join("atlas.png");
+        println!("{:?}", &path);
+        let texture_atlas = TextureAtlas::new(context.get_display(), &path, 16);
+
+        // Create block registry, which contains the block proprierties
+        let mut registry = BlockRegistry::new();
+
+        // AIR
+        let air_data = BlockDataBuilder::new("air")
+            .orientation(Direction::Up)
+            .north_face(texture_atlas.get_coords((3, 0)))
+            .top_face(texture_atlas.get_coords((0, 0)))
+            .bottom_face(texture_atlas.get_coords((2, 0)))
+            .build();
+        registry.add_block(BlockType::Air, air_data);
+
+        // DIRT
+        let dirt_data = BlockDataBuilder::new("dirt")
+            .orientation(Direction::Up)
+            .north_face(texture_atlas.get_coords((3, 15)))
+            .top_face(texture_atlas.get_coords((0, 15)))
+            .bottom_face(texture_atlas.get_coords((2, 15)))
+            .build();
+        registry.add_block(BlockType::Dirt, dirt_data);
 
         let player_pos = components::Position(camera.get_position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
@@ -57,6 +89,8 @@ impl Game{
             ecs_manager,
             player,
             terrain_manager,
+            texture_atlas,
+            registry,
             camera,
             timer,
             running
@@ -72,15 +106,6 @@ impl Game{
     }
 
     pub fn setup(&mut self){
-        // use crate::game::block;
-        // let mut mesh = MeshData::new();
-        // let face_data = FaceData::new([0, 0, 0], BlockType::Dirt, Direction::North);
-        // mesh.add_face(face_data);
-        //
-        // let pos = ChunkPosition::new(0, 0, 0);
-        // let mesh = mesh.build(self.context.get_display());
-        // self.meshes.insert(pos, mesh);
-
         self.terrain_manager.create_chunk_at([0, 0, 1]);
         self.terrain_manager.create_chunk_at([0, 1, 0]);
         self.terrain_manager.create_chunk_at([1, 0, 0]);
@@ -133,7 +158,7 @@ impl Game{
                                 let callback = |block| self.terrain_manager.block_at(block);
                                 let pos = self.camera.get_position().clone();
                                 let front = self.camera.get_front().clone();
-                                match raycast2(pos, front, 5., callback){
+                                match raycast(pos, front, 5., callback){
                                     Ok((block, face)) => {
                                         println!("Hit result: {:?} {:?}", block ,face);
                                         let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
@@ -157,7 +182,7 @@ impl Game{
                                 let callback = |block| self.terrain_manager.block_at(block);
                                 let pos = self.camera.get_position().clone();
                                 let front = self.camera.get_front().clone();
-                                match raycast2(pos, front, 5., callback){
+                                match raycast(pos, front, 5., callback){
                                     Ok((block, face)) => {
                                         println!("Hit result: {:?} {:?}", block ,face);
                                         let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
@@ -269,7 +294,7 @@ impl Game{
             camera.looking_at = self.camera.get_front();
         }
 
-        self.terrain_manager.mesh_dirty_chunks();
+        self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
 
         self.ecs_manager.run_systems();
 
@@ -285,6 +310,8 @@ impl Game{
         self.context.new_frame();
 
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
+
+        let texture = self.texture_atlas.get_texture();
 
         let perspective: [[f32; 4]; 4] = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(90f64)), self.context.get_aspect_ratio(), 0.1f64, 1024f64)
             .cast::<f32>() // Casts internal f64 to f32, since 'double' support in video grahics card is fairly recent...
@@ -325,7 +352,8 @@ impl Game{
             let uniforms = uniform!{
                 m: model,
                 v: view,
-                p: perspective
+                p: perspective,
+                t: texture
             };
 
             let shape = vec![
@@ -347,7 +375,8 @@ impl Game{
             let uniforms = uniform!{
                 m: model,
                 v: view,
-                p: perspective
+                p: perspective,
+                t: texture
             };
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);

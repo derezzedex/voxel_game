@@ -1,3 +1,4 @@
+use crate::utils::texture::TextureAtlas;
 use std::sync::Arc;
 use std::collections::HashMap;
 use cgmath::{Point3, Vector3};
@@ -6,6 +7,7 @@ use crate::game::terrain::block::*;
 use crate::game::terrain::chunk::*;
 use crate::engine::mesh::*;
 use crate::game::terrain::chunk_mesher::ChunkMesher;
+use crate::game::terrain::block_registry::BlockRegistry;
 
 pub type ChunkHashMap = HashMap<ChunkPosition, Arc<Chunk>>;
 pub type MeshHashMap = HashMap<ChunkPosition, Mesh>;
@@ -41,7 +43,14 @@ impl TerrainManager{
     }
 
     pub fn place_block(&mut self, position: Point3<f64>, face: Vector3<f64>){
-        let block = self.block_at(position);
+        let block = BlockPosition::new((position.x - face.x) as isize, (position.y - face.y) as isize, (position.z - face.z) as isize);//.get_offset();
+        let chunk_position = ChunkPosition::new(block.x >> 4, block.y >> 4, block.z >> 4);
+        if let Some(chunk) = self.chunks.get_mut(&chunk_position){
+            let chunk = Arc::make_mut(chunk);
+            let offset = block.get_offset();
+            let (x, y, z) = (offset.x as usize, offset.y as usize, offset.z as usize);
+            chunk.place_block(x, y, z, BlockType::Dirt);
+        }
     }
 
     pub fn get_chunk(&self, position: ChunkPosition) -> Option<&Arc<Chunk>>{
@@ -98,19 +107,19 @@ impl TerrainManager{
         self.add_chunk(position, Arc::new(chunk));
     }
 
-    pub fn mesh_dirty_chunks(&mut self){
+    pub fn mesh_dirty_chunks(&mut self, atlas: &TextureAtlas, registry: &BlockRegistry){
         for (pos, chunk) in &self.chunks{
             if chunk.is_dirty(){
                 let neighbors = self.get_neighbors(*pos);
-                self.mesh(*pos, chunk, neighbors);
+                self.mesh(*pos, chunk, neighbors, atlas, registry);
 
                 chunk.flag_clean();
             }
         }
     }
 
-    fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6]){
-        self.mesher.mesh(position, chunk, neighbors);
+    fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
+        self.mesher.mesh(position, chunk, neighbors, atlas, registry);
     }
 
     // pub fn update_chunk(&mut self, position: ChunkPosition, chunk: &mut Chunk){

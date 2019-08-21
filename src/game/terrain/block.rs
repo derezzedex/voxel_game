@@ -5,14 +5,16 @@ pub struct FaceData{
     position: [u8; 3],
     block_type: BlockType,
     direction: Direction,
+    coords: TextureCoords
 }
 
 impl FaceData{
-    pub fn new(position: [u8; 3], block_type: BlockType, direction: Direction) -> Self{
+    pub fn new(position: [u8; 3], block_type: BlockType, direction: Direction, coords: TextureCoords) -> Self{
         Self{
             position,
             block_type,
-            direction
+            direction,
+            coords
         }
     }
 
@@ -27,11 +29,15 @@ impl FaceData{
     pub fn get_type(&self) -> &BlockType{
         &self.block_type
     }
+
+    pub fn get_coordinates(&self) -> &TextureCoords{
+        &self.coords
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Direction{
-    North,
+    North = 0,
     South,
     East,
     West,
@@ -39,7 +45,7 @@ pub enum Direction{
     Down
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum BlockType{
     Air = 0,
     Dirt,
