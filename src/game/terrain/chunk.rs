@@ -54,11 +54,11 @@ impl ChunkPosition{
 
 pub type ChunkBlocks = [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Chunk{
     blocks: ChunkBlocks,
     // position: ChunkPosition,
-    dirty: Arc<AtomicBool>,
+    dirty: bool,
 }
 
 impl Chunk{
@@ -66,7 +66,7 @@ impl Chunk{
         Self{
             blocks: [[[filler; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
             // position,
-            dirty: Arc::new(AtomicBool::new(true)),
+            dirty: true,
         }
     }
 
@@ -89,15 +89,15 @@ impl Chunk{
     }
 
     pub fn is_dirty(&self) -> bool{
-        self.dirty.load(Ordering::Relaxed)
+        self.dirty
     }
 
-    pub fn flag_dirty(&self){
-        self.dirty.store(true, Ordering::Relaxed);
+    pub fn flag_dirty(&mut self){
+        self.dirty = true;
     }
 
-    pub fn flag_clean(&self){
-        self.dirty.store(false, Ordering::Relaxed);
+    pub fn flag_clean(&mut self){
+        self.dirty = false;
     }
 
     pub fn get_neighbor(&self, x: usize, y: usize, z: usize, dir: Direction, neighbor: Option<&Arc<Chunk>>) -> BlockType{

@@ -40,7 +40,7 @@ impl Game{
         let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
         let mut terrain_manager = TerrainManager::new(ChunkPosition::new(0, -1, 0));
-        terrain_manager.update_chunk_area(ChunkPosition::new(0, 0, 0), 8);
+        terrain_manager.update_chunks(ChunkPosition::new(0, 0, 0), 8);
 
         // Create and setup the texture atlas
         let cargo = env!("CARGO_MANIFEST_DIR");
@@ -106,9 +106,9 @@ impl Game{
     }
 
     pub fn setup(&mut self){
-        self.terrain_manager.create_chunk_at([0, 0, 1]);
-        self.terrain_manager.create_chunk_at([0, 1, 0]);
-        self.terrain_manager.create_chunk_at([1, 0, 0]);
+        // self.terrain_manager.create_chunk_at([0, 0, 1]);
+        // self.terrain_manager.create_chunk_at([0, 1, 0]);
+        // self.terrain_manager.create_chunk_at([1, 0, 0]);
 
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
@@ -303,7 +303,8 @@ impl Game{
         self.camera.update();
 
         let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
-        self.terrain_manager.update_chunk_area(position, 8);
+        // self.terrain_manager.update_chunk_area(position, 8);
+        self.terrain_manager.update_chunks(position, 8);
         self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
     }
 

@@ -13,6 +13,8 @@ rayon = "*"
 specs = "*"
 specs-derive = "*"
 noise = "*"
+threadpool = "*"
+evmap = "*"
 
 # [profile.release]
 # opt-level = 'z'
