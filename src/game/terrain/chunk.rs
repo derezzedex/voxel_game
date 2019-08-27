@@ -50,6 +50,19 @@ impl ChunkPosition{
             z
         }
     }
+
+    pub fn get_neighbors(&self) -> [ChunkPosition; 6]{
+        let north = ChunkPosition::new(self.x, self.y, self.z + 1);
+        let south = ChunkPosition::new(self.x, self.y, self.z - 1);
+
+        let east = ChunkPosition::new(self.x + 1, self.y, self.z);
+        let west = ChunkPosition::new(self.x - 1, self.y, self.z);
+
+        let up = ChunkPosition::new(self.x, self.y + 1, self.z);
+        let down = ChunkPosition::new(self.x, self.y - 1, self.z);
+
+        [north, south, east, west, up, down]
+    }
 }
 
 pub type ChunkBlocks = [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
@@ -68,6 +81,10 @@ impl Chunk{
             // position,
             dirty: true,
         }
+    }
+
+    pub fn new_air() -> Self{
+        Chunk::new(BlockType::Air)
     }
 
     pub fn remove_block(&mut self, x: usize, y: usize, z: usize){

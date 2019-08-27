@@ -13,8 +13,9 @@ rayon = "*"
 specs = "*"
 specs-derive = "*"
 noise = "*"
+scoped_threadpool = "*"
 threadpool = "*"
-evmap = "*"
+dashmap = "*"
 
 # [profile.release]
 # opt-level = 'z'

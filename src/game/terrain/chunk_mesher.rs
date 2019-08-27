@@ -1,41 +1,68 @@
-use crate::game::terrain::block_registry::BlockRegistry;
-use crate::utils::texture::TextureAtlas;
+use dashmap::Iter;
+use crate::game::terrain::chunk_manager::ChunkRef;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use std::sync::Arc;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 
+use dashmap::DashMap;
+use scoped_threadpool::Pool;
+
+use crate::game::terrain::block_registry::BlockRegistry;
+use crate::utils::texture::TextureAtlas;
 use crate::game::terrain::block::*;
 use crate::game::terrain::chunk::*;
 use crate::engine::mesh::*;
 
 pub type ChunkMesherMessage = (ChunkPosition, MeshData);
 pub struct ChunkMesher{
-    threadpool: ThreadPool,
+    threadpool: Pool,
     sender: Sender<ChunkMesherMessage>,
-    receiver: Receiver<ChunkMesherMessage>
+    receiver: Receiver<ChunkMesherMessage>,
+    meshes: DashMap<ChunkPosition, Mesh>,
 }
 
 impl ChunkMesher{
-    pub fn new(thread_number: usize) -> Self{
+    pub fn new(thread_number: u32) -> Self{
         let (sender, receiver) = mpsc::channel();
-        let threadpool = ThreadPoolBuilder::new().num_threads(thread_number).build().expect("Could'nt create ChunkMesher Threadpool");
+        let threadpool = Pool::new(thread_number);
+        let meshes = DashMap::default();
 
         Self{
             threadpool,
             sender,
-            receiver
+            receiver,
+            meshes
         }
+    }
+
+    pub fn get_meshes_iter<'a>(&'a self) -> Iter<'a, ChunkPosition, Mesh>{
+        self.meshes.iter()
+    }
+
+    pub fn get_meshes(&self) -> &DashMap<ChunkPosition, Mesh>{
+        &self.meshes
+    }
+
+    pub fn get_mut_meshes(&mut self) -> &mut DashMap<ChunkPosition, Mesh>{
+        &mut self.meshes
     }
 
     pub fn get_available_meshes(&self) -> mpsc::TryIter<ChunkMesherMessage>{
         self.receiver.try_iter()
     }
 
-    pub fn mesh(&self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<&Arc<Chunk>>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
+    pub fn update_available_meshes(&self, display: &glium::Display){
+        for (pos, mesh) in self.get_available_meshes(){
+            let built_mesh = mesh.build(display);
+            self.meshes.insert(pos, built_mesh);
+        }
+    }
+
+    pub fn mesh(&mut self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<ChunkRef>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
 
         let sender = self.sender.clone();
-        self.threadpool.install(move ||{
+
+        self.threadpool.scoped(|scope|{
             let mut mesh = MeshData::new();
 
             for x in 0..CHUNK_SIZE{
@@ -50,7 +77,8 @@ impl ChunkMesher{
                         let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
 
                         for i in 0..directions.len(){
-                            if chunk.get_neighbor(x, y, z, directions[i], neighbors[i]) == BlockType::Air{
+                            let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
+                            if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
                                 let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
                                 let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
                                 mesh.add_face(face_data);

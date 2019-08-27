@@ -100,15 +100,16 @@ impl Game{
     pub fn run(&mut self){
         self.setup();
 
-        while self.running{
-            self.tick();
-        }
+        // while self.running{
+        //     self.tick();
+        // }
     }
 
     pub fn setup(&mut self){
         // self.terrain_manager.create_chunk_at([0, 0, 1]);
         // self.terrain_manager.create_chunk_at([0, 1, 0]);
         // self.terrain_manager.create_chunk_at([1, 0, 0]);
+        self.terrain_manager.test(0, 0, 0);
 
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
@@ -148,60 +149,60 @@ impl Game{
                 },
                 glium::glutin::Event::WindowEvent { event, .. } => match event{
                     glium::glutin::WindowEvent::CloseRequested => self.running = false,
-                    glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        if state == &glium::glutin::ElementState::Pressed{
-                            if button == &glium::glutin::MouseButton::Left{
-                                // let position_storage = world.read_storage::<components::Position>();
-                                // let position = position_storage.get(self.player).expect("Failed to get Player Position");
-                                // let camera_storage = world.read_storage::<components::Camera>();
-                                // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
-                                let callback = |block| self.terrain_manager.block_at(block);
-                                let pos = self.camera.get_position().clone();
-                                let front = self.camera.get_front().clone();
-                                match raycast(pos, front, 5., callback){
-                                    Ok((block, face)) => {
-                                        println!("Hit result: {:?} {:?}", block ,face);
-                                        let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
-                                        let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
-                                        let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize).get_offset();
-                                        use std::sync::Arc;
-
-                                        if let Some(chunk) = chunk{
-                                            let c = Arc::make_mut(chunk);
-                                            println!("{:?}", block_position);
-                                            c.remove_block(block_position.x as usize, block_position.y as usize, block_position.z as usize);
-                                        }
-                                    },
-                                    _ => (),
-                                }
-                            }else if button == &glium::glutin::MouseButton::Right{
-                                // let position_storage = world.read_storage::<components::Position>();
-                                // let position = position_storage.get(self.player).expect("Failed to get Player Position");
-                                // let camera_storage = world.read_storage::<components::Camera>();
-                                // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
-                                let callback = |block| self.terrain_manager.block_at(block);
-                                let pos = self.camera.get_position().clone();
-                                let front = self.camera.get_front().clone();
-                                match raycast(pos, front, 5., callback){
-                                    Ok((block, face)) => {
-                                        println!("Hit result: {:?} {:?}", block ,face);
-                                        let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
-                                        let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
-                                        let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize);
-                                        let block_offset = block_position.get_offset();
-                                        use std::sync::Arc;
-
-                                        if let Some(chunk) = chunk{
-                                            let c = Arc::make_mut(chunk);
-                                            println!("{:?}", block_position);
-                                            self.terrain_manager.place_block(block, face);
-                                        }
-                                    },
-                                    _ => (),
-                                }
-                            }
-                        }
-                    },
+                    // glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
+                    //     if state == &glium::glutin::ElementState::Pressed{
+                    //         if button == &glium::glutin::MouseButton::Left{
+                    //             // let position_storage = world.read_storage::<components::Position>();
+                    //             // let position = position_storage.get(self.player).expect("Failed to get Player Position");
+                    //             // let camera_storage = world.read_storage::<components::Camera>();
+                    //             // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
+                    //             let callback = |block| self.terrain_manager.block_at(block);
+                    //             let pos = self.camera.get_position().clone();
+                    //             let front = self.camera.get_front().clone();
+                    //             match raycast(pos, front, 5., callback){
+                    //                 Ok((block, face)) => {
+                    //                     println!("Hit result: {:?} {:?}", block ,face);
+                    //                     let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
+                    //                     let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
+                    //                     let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize).get_offset();
+                    //                     use std::sync::Arc;
+                    //
+                    //                     if let Some(chunk) = chunk{
+                    //                         let c = Arc::make_mut(chunk);
+                    //                         println!("{:?}", block_position);
+                    //                         c.remove_block(block_position.x as usize, block_position.y as usize, block_position.z as usize);
+                    //                     }
+                    //                 },
+                    //                 _ => (),
+                    //             }
+                    //         }else if button == &glium::glutin::MouseButton::Right{
+                    //             // let position_storage = world.read_storage::<components::Position>();
+                    //             // let position = position_storage.get(self.player).expect("Failed to get Player Position");
+                    //             // let camera_storage = world.read_storage::<components::Camera>();
+                    //             // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
+                    //             let callback = |block| self.terrain_manager.block_at(block);
+                    //             let pos = self.camera.get_position().clone();
+                    //             let front = self.camera.get_front().clone();
+                    //             match raycast(pos, front, 5., callback){
+                    //                 Ok((block, face)) => {
+                    //                     println!("Hit result: {:?} {:?}", block ,face);
+                    //                     let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
+                    //                     let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
+                    //                     let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize);
+                    //                     let block_offset = block_position.get_offset();
+                    //                     use std::sync::Arc;
+                    //
+                    //                     if let Some(chunk) = chunk{
+                    //                         let c = Arc::make_mut(chunk);
+                    //                         println!("{:?}", block_position);
+                    //                         self.terrain_manager.place_block(block, face);
+                    //                     }
+                    //                 },
+                    //                 _ => (),
+                    //             }
+                    //         }
+                    //     }
+                    // },
                     // glium::glutin::WindowEvent::CursorLeft{ .. } => println!("Left!"),
                     // glium::glutin::WindowEvent::CursorEntered{ .. } => println!("Entered!"),
                     glium::glutin::WindowEvent::KeyboardInput{input, ..} => {
@@ -368,7 +369,8 @@ impl Game{
         }
 
         self.terrain_manager.update_received_meshes(self.context.get_display());
-        for (pos, mesh) in self.terrain_manager.get_meshes(){
+        for ref_mesh in self.terrain_manager.get_meshes(){
+            let (pos, mesh) = (ref_mesh.key(), ref_mesh.value());
             let (x, y, z) = (pos.x as f32, pos.y as f32, pos.z as f32);
             let vector_pos = cgmath::Vector3::new(x, y, z) * 16.;
             let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(vector_pos).into();
