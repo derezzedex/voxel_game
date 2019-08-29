@@ -22,13 +22,22 @@ use crate::game::terrain::chunk::{Chunk, ChunkPosition, CHUNK_SIZE};
 pub type ChunkRef<'a> = DashMapRef<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkRefMut<'a> = DashMapRefMut<'a, ChunkPosition, Arc<Chunk>>;
 
-pub type ChunkUpdaterMessage = (ChunkPosition, Arc<Chunk>);
+
+pub enum ChunkOperation{
+    Addition,
+    Remotion,
+    Update
+}
+
+pub type ChunkUpdaterMessage = (ChunkPosition, Option<Arc<Chunk>>, ChunkOperation);
 
 pub struct ChunkManager {
     threadpool: ThreadPool,
     sender: Sender<ChunkUpdaterMessage>,
     receiver: Receiver<ChunkUpdaterMessage>,
     chunks: Arc<DashMap<ChunkPosition, Arc<Chunk>>>,
+
+    chunk_queue: VecDeque<ChunkUpdaterMessage>,
 
     noise: Perlin,
 }
@@ -40,6 +49,8 @@ impl ChunkManager {
         let (sender, receiver) = mpsc::channel();
         let threadpool = ThreadPool::new(thread_number as usize);
 
+        let chunk_queue = VecDeque::new();
+
         let chunks = Arc::new(DashMap::default());
 
         Self {
@@ -47,6 +58,7 @@ impl ChunkManager {
             sender,
             receiver,
             chunks,
+            chunk_queue,
             noise
         }
     }
@@ -57,6 +69,10 @@ impl ChunkManager {
 
     pub fn get_mut_chunks<'a>(&'a self) -> IterMut<'a, ChunkPosition, Arc<Chunk>>{
         self.chunks.iter_mut()
+    }
+
+    pub fn chunk_exists(&self, position: ChunkPosition) -> bool{
+        self.chunks.contains_key(&position)
     }
 
     pub fn get_chunk(&self, position: ChunkPosition) -> Option<ChunkRef>{
@@ -80,20 +96,42 @@ impl ChunkManager {
         self.receiver.try_iter()
     }
 
-    pub fn update_available_chunks(&self, display: &glium::Display){
-        for (pos, chunk) in self.get_available_chunks(){
-            self.add_chunk(pos, chunk);
+    pub fn update_chunk_queue(&mut self){
+        let mut new_operations: VecDeque<_> = self.get_available_chunks().collect();
+        // println!("Received: {:?}", new_operations.len());
+        self.chunk_queue.append(&mut new_operations);
+    }
+
+    pub fn chunk_queue_number(&self) -> usize{
+        self.chunk_queue.len()
+    }
+
+    pub fn dequeue_chunk(&mut self){
+        if let Some((pos, chunk, op)) = self.chunk_queue.pop_front(){
+            match op{
+                ChunkOperation::Addition => self.add_chunk(pos, chunk.expect("Couldn't get unwrap chunk from Manager.")),
+                ChunkOperation::Remotion => self.remove_chunk(pos),
+                ChunkOperation::Update => (),
+            }
         }
     }
 
-    pub fn create_chunk(&mut self, position: ChunkPosition){
-        let timer = Instant::now();
+    pub fn async_remove_chunk(&mut self, position: ChunkPosition){
+        let sender = self.sender.clone();
+        let chunk = self.get_chunk(position);
+
+        if let Some(chunk) = chunk{
+            self.threadpool.execute(move ||{
+                sender.send((position, None, ChunkOperation::Remotion));
+            });
+        }
+    }
+
+    pub fn async_create_chunk(&mut self, position: ChunkPosition){
         let sender = self.sender.clone();
         let noise = self.noise.clone();
-        let map = self.chunks.clone();
-        println!("Setup: {:?}", timer.elapsed());
-        self.threadpool.execute(move ||{
 
+        self.threadpool.execute(move ||{
             let mut chunk = Chunk::new_air();
             for z in 0..CHUNK_SIZE {
                 for y in 0..CHUNK_SIZE {
@@ -121,9 +159,7 @@ impl ChunkManager {
                 }
             }
 
-            // self.add_chunk(position, Arc::new(chunk));
-            map.insert(position, Arc::new(chunk));
-            // sender.send((position, Arc::new(chunk)));
+            sender.send((position, Some(Arc::new(chunk)), ChunkOperation::Addition));
         });
     }
 

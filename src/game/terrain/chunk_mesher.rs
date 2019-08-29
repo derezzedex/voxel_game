@@ -1,3 +1,5 @@
+use crate::game::terrain::chunk_manager::ChunkManager;
+use std::collections::VecDeque;
 use dashmap::Iter;
 use crate::game::terrain::chunk_manager::ChunkRef;
 use std::sync::mpsc;
@@ -6,6 +8,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use scoped_threadpool::Pool;
+use threadpool::ThreadPool;
 
 use crate::game::terrain::block_registry::BlockRegistry;
 use crate::utils::texture::TextureAtlas;
@@ -19,6 +22,8 @@ pub struct ChunkMesher{
     sender: Sender<ChunkMesherMessage>,
     receiver: Receiver<ChunkMesherMessage>,
     meshes: DashMap<ChunkPosition, Mesh>,
+
+    mesh_queue: VecDeque<ChunkMesherMessage>,
 }
 
 impl ChunkMesher{
@@ -27,11 +32,14 @@ impl ChunkMesher{
         let threadpool = Pool::new(thread_number);
         let meshes = DashMap::default();
 
+        let mesh_queue = VecDeque::new();
+
         Self{
             threadpool,
             sender,
             receiver,
-            meshes
+            meshes,
+            mesh_queue
         }
     }
 
@@ -47,16 +55,33 @@ impl ChunkMesher{
         &mut self.meshes
     }
 
+    pub fn mesh_queue_number(&self) -> usize{
+        self.mesh_queue.len()
+    }
+
     pub fn get_available_meshes(&self) -> mpsc::TryIter<ChunkMesherMessage>{
         self.receiver.try_iter()
     }
 
-    pub fn update_available_meshes(&self, display: &glium::Display){
-        for (pos, mesh) in self.get_available_meshes(){
+    pub fn update_mesh_queue(&mut self){
+        let mut new_meshes: VecDeque<_> = self.get_available_meshes().collect();
+        // println!("Received: {:?}", new_meshes.len());
+        self.mesh_queue.append(&mut new_meshes);
+    }
+
+    pub fn dequeue_mesh(&mut self, display: &glium::Display){
+        if let Some((pos, mesh)) = self.mesh_queue.pop_front(){
             let built_mesh = mesh.build(display);
             self.meshes.insert(pos, built_mesh);
         }
     }
+
+    // pub fn mesh_available_meshes(&self, display: &glium::Display){
+    //     for (pos, mesh) in self.get_available_meshes(){
+    //         let built_mesh = mesh.build(display);
+    //         self.meshes.insert(pos, built_mesh);
+    //     }
+    // }
 
     pub fn mesh(&mut self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<ChunkRef>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
 

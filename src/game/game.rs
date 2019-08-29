@@ -40,7 +40,7 @@ impl Game{
         let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
         let mut terrain_manager = TerrainManager::new(ChunkPosition::new(0, -1, 0));
-        terrain_manager.update_chunks(ChunkPosition::new(0, 0, 0), 8);
+        // terrain_manager.update_chunks(ChunkPosition::new(0, 0, 0), 8);
 
         // Create and setup the texture atlas
         let cargo = env!("CARGO_MANIFEST_DIR");
@@ -109,7 +109,7 @@ impl Game{
         // self.terrain_manager.create_chunk_at([0, 0, 1]);
         // self.terrain_manager.create_chunk_at([0, 1, 0]);
         // self.terrain_manager.create_chunk_at([1, 0, 0]);
-        self.terrain_manager.test(0, 0, 0);
+        self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
 
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
@@ -305,8 +305,11 @@ impl Game{
 
         let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
         // self.terrain_manager.update_chunk_area(position, 8);
+        // println!("Queue number: {:?}", self.terrain_manager.queue_number());
         self.terrain_manager.update_chunks(position, 8);
-        self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
+        let dirty = Instant::now();
+        // self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
+        println!("Dirty: {:?}", dirty.elapsed());
     }
 
     pub fn render(&mut self){
@@ -325,48 +328,46 @@ impl Game{
             .expect("Couldn't cast View f64 to f32")
             .into();
 
-        // TODO: Draw line from origin + origin+front and see how it behaves, there may be a problem with the perspective/view matrix!
-        // TODO: Fix the raycast from the results of the debugging
-        {
-            use crate::engine::Vertex;
-            use glium::Surface;
-
-            let mut front = Vector3::zero();
-            {
-                let mut camera_storage = self.ecs_manager.get_mut_world().write_storage::<components::Camera>();
-                let mut camera = camera_storage.get_mut(self.player).expect("Failed to get Player Camera");
-                front = camera.looking_at;
-            }
-
-            let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
-            let position = position_storage.get(self.player).expect("Failed to get Player Position");
-            let mut pos_vector = Vector3::new(position.0.x, position.0.y, position.0.z);
-            // let mut pos_vector = Vector3::zero();
-            // pos_vector.x += 2.;
-            // pos_vector.y += 2.;
-            // pos_vector.z += 2.;
-
-            use cgmath::InnerSpace;
-            // println!("Front: {:?}", front.magnitude());
-            let dest = (pos_vector + front).cast::<f32>().expect("Coudln't cast Dest to f32!");
-
-            // let pos_vector = Vector3::zero();
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::zero()).into();
-            let uniforms = uniform!{
-                m: model,
-                v: view,
-                p: perspective
-            };
-
-            let shape = vec![
-                Vertex::new([ pos_vector.x as f32, pos_vector.y as f32 + 5., pos_vector.z as f32], [ 1.0, 0.0, 0.0]),
-                Vertex::new([ dest.x, dest.y, dest.z ], [ 1.0, 0.0, 0.0])];
-
-            // println!("Shape: {:#?}", &shape);
-            let mesh = MeshData::new_raw(shape, vec![]).build_no_indices(self.context.get_display());
-
-            self.context.draw_no_indices(mesh.get_vb(), mesh.get_ib(), &uniforms);
-        }
+        // {
+        //     use crate::engine::Vertex;
+        //     use glium::Surface;
+        //
+        //     let mut front = Vector3::zero();
+        //     {
+        //         let mut camera_storage = self.ecs_manager.get_mut_world().write_storage::<components::Camera>();
+        //         let mut camera = camera_storage.get_mut(self.player).expect("Failed to get Player Camera");
+        //         front = camera.looking_at;
+        //     }
+        //
+        //     let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
+        //     let position = position_storage.get(self.player).expect("Failed to get Player Position");
+        //     let mut pos_vector = Vector3::new(position.0.x, position.0.y, position.0.z);
+        //     // let mut pos_vector = Vector3::zero();
+        //     // pos_vector.x += 2.;
+        //     // pos_vector.y += 2.;
+        //     // pos_vector.z += 2.;
+        //
+        //     use cgmath::InnerSpace;
+        //     // println!("Front: {:?}", front.magnitude());
+        //     let dest = (pos_vector + front).cast::<f32>().expect("Coudln't cast Dest to f32!");
+        //
+        //     // let pos_vector = Vector3::zero();
+        //     let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::zero()).into();
+        //     let uniforms = uniform!{
+        //         m: model,
+        //         v: view,
+        //         p: perspective
+        //     };
+        //
+        //     let shape = vec![
+        //         Vertex::new([ pos_vector.x as f32, pos_vector.y as f32 + 5., pos_vector.z as f32], [ 1.0, 0.0, 0.0]),
+        //         Vertex::new([ dest.x, dest.y, dest.z ], [ 1.0, 0.0, 0.0])];
+        //
+        //     // println!("Shape: {:#?}", &shape);
+        //     let mesh = MeshData::new_raw(shape, vec![]).build_no_indices(self.context.get_display());
+        //
+        //     self.context.draw_no_indices(mesh.get_vb(), mesh.get_ib(), &uniforms);
+        // }
 
         self.terrain_manager.update_received_meshes(self.context.get_display());
         for ref_mesh in self.terrain_manager.get_meshes(){
