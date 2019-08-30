@@ -1,3 +1,4 @@
+use crate::game::terrain::manager::ChunkIter;
 use crate::game::terrain::chunk_manager::ChunkManager;
 use std::collections::VecDeque;
 use dashmap::Iter;
@@ -15,6 +16,8 @@ use crate::utils::texture::TextureAtlas;
 use crate::game::terrain::block::*;
 use crate::game::terrain::chunk::*;
 use crate::engine::mesh::*;
+
+use std::ops::Deref;
 
 pub type ChunkMesherMessage = (ChunkPosition, MeshData);
 pub struct ChunkMesher{
@@ -83,39 +86,94 @@ impl ChunkMesher{
     //     }
     // }
 
-    pub fn mesh(&mut self, position: ChunkPosition, chunk: &Arc<Chunk>, neighbors: [Option<ChunkRef>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
-
+    /*
+        TODO: Implement a VecDeque to queue dirty chunks, only work on them when there's time left
+        TODO: Calculate time needed to mesh each chunk
+            1. Estimate using some tests before running the game...
+            2. Use last chunk time
+            3. Create perfect and worst case conditions for meshing, then test the hardware
+    */
+    pub fn mesh_chunks(&mut self, manager: &mut ChunkManager, atlas: &TextureAtlas, registry: &BlockRegistry){
         let sender = self.sender.clone();
-
         self.threadpool.scoped(|scope|{
-            let mut mesh = MeshData::new();
+            for c_ref in manager.get_chunks(){
+                // TODO: Try using a non-scoped threadpool to mesh the chunks, cloning everything needed. Shouldn't be expensive.
+                let timer = std::time::Instant::now();
+                let chunk = c_ref.deref().clone();
+                let pos = c_ref.key().clone();
+                let neighbors = manager.get_neighbors(pos);
+                let sender = sender.clone();
 
-            for x in 0..CHUNK_SIZE{
-                for y in 0..CHUNK_SIZE{
-                    for z in 0..CHUNK_SIZE{
-                        let block_type = chunk.get_blocks()[x][y][z];
+                scope.execute(move ||{
+                    let timer_inside = std::time::Instant::now();
+                    let mut mesh = MeshData::new();
 
-                        if block_type == BlockType::Air{
-                            continue;
-                        }
+                    for x in 0..CHUNK_SIZE{
+                        for y in 0..CHUNK_SIZE{
+                            for z in 0..CHUNK_SIZE{
+                                let block_type = chunk.get_blocks()[x][y][z];
 
-                        let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
+                                if block_type == BlockType::Air{
+                                    continue;
+                                }
 
-                        for i in 0..directions.len(){
-                            let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
-                            if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
-                                let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
-                                let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
-                                mesh.add_face(face_data);
+                                let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
+
+                                for i in 0..directions.len(){
+                                    let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
+                                    if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
+                                        let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
+                                        let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
+                                        mesh.add_face(face_data);
+
+                                    }
+                                }
 
                             }
                         }
-
                     }
-                }
-            }
 
-            sender.send((position, mesh));
+                    sender.send((pos, mesh));
+                    println!("Inside mesh time: {:?}", timer_inside.elapsed());
+                });
+                println!("Outside mesh time: {:?}", timer.elapsed());
+            }
         });
     }
+
+    // pub fn mesh(&mut self, position: ChunkPosition, chunk: &Arc<Chunk>, mut neighbors: [Option<&Arc<Chunk>>; 6], atlas: &TextureAtlas, registry: &BlockRegistry){
+    //     let chunk = chunk.clone();
+    //     let sender = self.sender.clone();
+    //
+    //     self.threadpool.execute(move ||{
+    //         let mut mesh = MeshData::new();
+    //
+    //         for x in 0..CHUNK_SIZE{
+    //             for y in 0..CHUNK_SIZE{
+    //                 for z in 0..CHUNK_SIZE{
+    //                     let block_type = chunk.get_blocks()[x][y][z];
+    //
+    //                     if block_type == BlockType::Air{
+    //                         continue;
+    //                     }
+    //
+    //                     let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
+    //
+    //                     for i in 0..directions.len(){
+    //                         let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
+    //                         if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
+    //                             let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
+    //                             let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
+    //                             mesh.add_face(face_data);
+    //
+    //                         }
+    //                     }
+    //
+    //                 }
+    //             }
+    //         }
+    //
+    //         sender.send((position, mesh));
+    //     });
+    // }
 }

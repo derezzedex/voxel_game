@@ -16,6 +16,8 @@ use crate::game::terrain::chunk_manager::{ChunkManager, ChunkRef, ChunkRefMut};
 use rayon::iter::ParallelBridge;
 use rayon::prelude::*;
 
+pub type ChunkIter<'a> = Iter<'a, ChunkPosition, Arc<Chunk>>;
+
 pub struct TerrainManager {
     mesher: ChunkMesher,
     manager: ChunkManager,
@@ -41,7 +43,7 @@ impl TerrainManager {
     pub fn test(&mut self, x: isize, y: isize, z: isize, atlas: &TextureAtlas, registry: &BlockRegistry, display: &glium::Display){
         let timer = Instant::now();
 
-        let n = 16 * 16 * 16;
+        let n = 10;
         println!("Chunks: {:?}", n);
 
         // ---------------- CREATE CHUNKS ----------------
@@ -133,9 +135,7 @@ impl TerrainManager {
     pub fn queue_number(&self) -> usize{
         self.manager.chunk_queue_number()
     }
-    /*
-        TODO: Try cloning instead of using a scoped thread, clone the chunks and its neighbors...
-    */
+    
     pub fn mesh_dirty_chunks(&mut self, atlas: &TextureAtlas, registry: &BlockRegistry) {
         self.mesher.mesh_chunks(&mut self.manager, atlas, registry);
         // for chunk_ref in self.manager.get_chunks(){
