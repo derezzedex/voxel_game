@@ -119,11 +119,14 @@ impl TerrainManager {
         println!("Total time: {:?}", timer.elapsed() - Duration::from_secs(15));
     }
 
-    pub fn update_received_meshes(&mut self, display: &glium::Display){
+    pub fn update_received_meshes(&mut self, display: &glium::Display, time_left: Duration){
         self.mesher.update_mesh_queue();
+        let one_milli = Duration::from_millis(1);
         let mesher_timer = Instant::now();
-        while mesher_timer.elapsed() < Duration::from_millis(1) && self.mesher.mesh_queue_number() != 0{
-            self.mesher.dequeue_mesh(display);
+        while mesher_timer.elapsed() < time_left && self.mesher.mesh_queue_number() != 0{
+            if let Some(pos) = self.mesher.dequeue_mesh(display){
+                self.manager.clean_chunk_at(pos);
+            }
             // self.manager.update_chunk_queue();
         }
     }
@@ -135,7 +138,7 @@ impl TerrainManager {
     pub fn queue_number(&self) -> usize{
         self.manager.chunk_queue_number()
     }
-    
+
     pub fn mesh_dirty_chunks(&mut self, atlas: &TextureAtlas, registry: &BlockRegistry) {
         self.mesher.mesh_chunks(&mut self.manager, atlas, registry);
         // for chunk_ref in self.manager.get_chunks(){

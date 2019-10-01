@@ -100,16 +100,16 @@ impl Game{
     pub fn run(&mut self){
         self.setup();
 
-        // while self.running{
-        //     self.tick();
-        // }
+        while self.running{
+            self.tick();
+        }
     }
 
     pub fn setup(&mut self){
         // self.terrain_manager.create_chunk_at([0, 0, 1]);
         // self.terrain_manager.create_chunk_at([0, 1, 0]);
         // self.terrain_manager.create_chunk_at([1, 0, 0]);
-        self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
+        // self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
 
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
@@ -118,6 +118,7 @@ impl Game{
     }
 
     pub fn tick(&mut self){
+        let now = Instant::now();
         self.timer.readjust();
 
         self.handle_input();
@@ -127,7 +128,7 @@ impl Game{
             self.timer.update();
         }
 
-        self.render();
+        self.render(now);
         self.ecs_manager.maintain_world();
     }
 
@@ -306,13 +307,15 @@ impl Game{
         let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
         // self.terrain_manager.update_chunk_area(position, 8);
         // println!("Queue number: {:?}", self.terrain_manager.queue_number());
-        self.terrain_manager.update_chunks(position, 8);
-        let dirty = Instant::now();
-        // self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
-        println!("Dirty: {:?}", dirty.elapsed());
+        self.terrain_manager.update_chunks(position, 2);
+        println!("Updated chunks");
+        // let dirty = Instant::now();
+        self.terrain_manager.mesh_dirty_chunks(&self.texture_atlas, &self.registry);
+        println!("Meshed chunks");
+        // println!("Dirty: {:?}", dirty.elapsed());
     }
 
-    pub fn render(&mut self){
+    pub fn render(&mut self, timer: Instant){
         self.context.new_frame();
 
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
@@ -369,7 +372,7 @@ impl Game{
         //     self.context.draw_no_indices(mesh.get_vb(), mesh.get_ib(), &uniforms);
         // }
 
-        self.terrain_manager.update_received_meshes(self.context.get_display());
+        // self.terrain_manager.update_received_meshes(self.context.get_display());
         for ref_mesh in self.terrain_manager.get_meshes(){
             let (pos, mesh) = (ref_mesh.key(), ref_mesh.value());
             let (x, y, z) = (pos.x as f32, pos.y as f32, pos.z as f32);
@@ -387,7 +390,10 @@ impl Game{
         }
 
         // ui
-        self.context.ui.debug.set_fps(to_secs(self.timer.elapsed));
+        let elapsed = timer.elapsed();
+        let time_left = self.timer.max_ups.checked_sub(elapsed).unwrap_or(std::time::Duration::new(0, 0));
+        self.terrain_manager.update_received_meshes(self.context.get_display(), time_left);
+        self.context.ui.debug.set_fps(to_secs(time_left));
         self.context.draw_ui();
 
         self.context.finish_frame();

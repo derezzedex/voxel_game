@@ -72,11 +72,14 @@ impl ChunkMesher{
         self.mesh_queue.append(&mut new_meshes);
     }
 
-    pub fn dequeue_mesh(&mut self, display: &glium::Display){
+    pub fn dequeue_mesh(&mut self, display: &glium::Display) -> Option<ChunkPosition>{
         if let Some((pos, mesh)) = self.mesh_queue.pop_front(){
             let built_mesh = mesh.build(display);
             self.meshes.insert(pos, built_mesh);
+            // clean chunk
+            return Some(pos);
         }
+        None
     }
 
     // pub fn mesh_available_meshes(&self, display: &glium::Display){
@@ -101,42 +104,46 @@ impl ChunkMesher{
                 let timer = std::time::Instant::now();
                 let chunk = c_ref.deref().clone();
                 let pos = c_ref.key().clone();
-                let neighbors = manager.get_neighbors(pos);
-                let sender = sender.clone();
 
-                scope.execute(move ||{
-                    let timer_inside = std::time::Instant::now();
-                    let mut mesh = MeshData::new();
+                if chunk.is_dirty(){
+                    let neighbors = manager.get_neighbors(pos);
+                    let sender = sender.clone();
 
-                    for x in 0..CHUNK_SIZE{
-                        for y in 0..CHUNK_SIZE{
-                            for z in 0..CHUNK_SIZE{
-                                let block_type = chunk.get_blocks()[x][y][z];
+                    scope.execute(move ||{
+                        let timer_inside = std::time::Instant::now();
+                        let mut mesh = MeshData::new();
 
-                                if block_type == BlockType::Air{
-                                    continue;
-                                }
+                        for x in 0..CHUNK_SIZE{
+                            for y in 0..CHUNK_SIZE{
+                                for z in 0..CHUNK_SIZE{
+                                    let block_type = chunk.get_blocks()[x][y][z];
 
-                                let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
-
-                                for i in 0..directions.len(){
-                                    let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
-                                    if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
-                                        let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
-                                        let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
-                                        mesh.add_face(face_data);
-
+                                    if block_type == BlockType::Air{
+                                        continue;
                                     }
-                                }
 
+                                    let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
+
+                                    for i in 0..directions.len(){
+                                        let neighbor = neighbors[i].as_ref().and_then(|inner| Some(&**inner));
+                                        if chunk.get_neighbor(x, y, z, directions[i], neighbor) == BlockType::Air{
+                                            let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
+                                            let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
+                                            mesh.add_face(face_data);
+
+                                        }
+                                    }
+
+                                }
                             }
                         }
-                    }
 
-                    sender.send((pos, mesh));
-                    println!("Inside mesh time: {:?}", timer_inside.elapsed());
-                });
-                println!("Outside mesh time: {:?}", timer.elapsed());
+                        sender.send((pos, mesh));
+                        // println!("Inside mesh time: {:?}", timer_inside.elapsed());
+                    });
+                    // println!("Outside mesh time: {:?}", timer.elapsed());
+                }
+
             }
         });
     }

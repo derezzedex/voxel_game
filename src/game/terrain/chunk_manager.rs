@@ -179,8 +179,20 @@ impl ChunkManager {
     pub fn dirty_neighbors(&self, position: ChunkPosition){
         for neighbor in position.get_neighbors().iter(){
             if let Some(mut chunk) = self.chunks.get_mut(&position){
-                self.clean_chunk(&mut chunk);
+                self.dirty_chunk(&mut chunk);
             }
+        }
+    }
+
+    pub fn dirty_chunk_at(&self, pos: ChunkPosition){
+        if let Some(mut chunk) = self.chunks.get_mut(&pos){
+            self.dirty_chunk(&mut chunk);
+        }
+    }
+
+    pub fn clean_chunk_at(&self, pos: ChunkPosition){
+        if let Some(mut chunk) = self.chunks.get_mut(&pos){
+            self.clean_chunk(&mut chunk);
         }
     }
 
