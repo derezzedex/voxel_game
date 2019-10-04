@@ -21,13 +21,13 @@ impl BlockPosition{
         }
     }
 
-    pub fn get_offset(&self) -> Self{
+    pub fn to_chunk(&self) -> ChunkPosition{
         let chunk_size = CHUNK_SIZE as isize;
-        let x = ((self.x % chunk_size) + chunk_size) % chunk_size;
-        let y = ((self.y % chunk_size) + chunk_size) % chunk_size;
-        let z = ((self.z % chunk_size) + chunk_size) % chunk_size;
+        let x = self.x / chunk_size;
+        let y = self.y / chunk_size;
+        let z = self.z / chunk_size;
 
-        Self{
+        ChunkPosition{
             x,
             y,
             z
@@ -63,6 +63,19 @@ impl ChunkPosition{
 
         [north, south, east, west, up, down]
     }
+
+    pub fn to_block(&self) -> BlockPosition{
+        let chunk_size = CHUNK_SIZE as isize;
+        let x = ((self.x % chunk_size) + chunk_size) % chunk_size;
+        let y = ((self.y % chunk_size) + chunk_size) % chunk_size;
+        let z = ((self.z % chunk_size) + chunk_size) % chunk_size;
+
+        BlockPosition{
+            x,
+            y,
+            z
+        }
+    }
 }
 
 pub type ChunkBlocks = [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
@@ -70,7 +83,6 @@ pub type ChunkBlocks = [[[BlockType; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Chunk{
     blocks: ChunkBlocks,
-    // position: ChunkPosition,
     dirty: bool,
 }
 
@@ -78,7 +90,6 @@ impl Chunk{
     pub fn new(filler: BlockType) -> Self{
         Self{
             blocks: [[[filler; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
-            // position,
             dirty: true,
         }
     }

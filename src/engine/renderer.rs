@@ -33,7 +33,7 @@ impl Context {
         let cb = glutin::ContextBuilder::new()
             .with_depth_buffer(24)
             .with_multisampling(4)
-            .with_vsync(true);
+            .with_vsync(false);
         let mut display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
 

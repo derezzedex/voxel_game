@@ -87,6 +87,7 @@ impl BlockDataBuilder{
     }
 }
 
+#[derive(Clone)]
 pub struct BlockData{
     block_name: BlockId,
     tex_coord: Vec<TextureCoords>,
