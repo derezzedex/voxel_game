@@ -77,18 +77,6 @@ impl Game{
         }
     }
 
-    pub fn setup(&mut self){
-        // self.terrain_manager.create_chunk_at([0, 0, 1]);
-        // self.terrain_manager.create_chunk_at([0, 1, 0]);
-        // self.terrain_manager.create_chunk_at([1, 0, 0]);
-        // self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
-
-        {
-            let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
-            *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
-        }
-    }
-
     pub fn tick(&mut self){
         let now = Instant::now();
         self.timer.readjust();
@@ -102,6 +90,49 @@ impl Game{
 
         self.render(now);
         self.ecs_manager.maintain_world();
+    }
+
+    pub fn setup(&mut self){
+        // self.terrain_manager.create_chunk_at([0, 0, 1]);
+        // self.terrain_manager.create_chunk_at([0, 1, 0]);
+        // self.terrain_manager.create_chunk_at([1, 0, 0]);
+        // self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
+
+        // let terrain_image = self.terrain_manager.generate_image(&self.context.display.0);
+        // self.context.ui.replace_terrain_image(terrain_image);
+
+        {
+            let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
+            *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
+        }
+
+        // self.terrain_manager.test_terrain();
+        // {
+        //     use crate::game::ecs::systems::Chunks;
+        //     let mut chunks = self.ecs_manager.get_mut_world().write_resource::<Chunks>();
+        //     *chunks = Chunks(self.terrain_manager.get_chunks());
+        // }
+    }
+
+
+    pub fn update(&mut self){
+        {
+            let mut camera_storage = self.ecs_manager.get_mut_world().write_storage::<components::Camera>();
+            let mut camera = camera_storage.get_mut(self.player).expect("Failed to get Player Camera");
+
+            camera.looking_at = self.camera.get_front();
+        }
+
+        self.ecs_manager.run_systems();
+
+        // sync player position with camera
+        let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
+        let position = position_storage.get(self.player).expect("Failed to get Player Position");
+        self.camera.set_positon(position.0);
+        self.camera.update();
+
+        let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
+        self.terrain_manager.update_chunks(position);
     }
 
     pub fn handle_input(&mut self){
@@ -260,25 +291,6 @@ impl Game{
         }
     }
 
-    pub fn update(&mut self){
-        {
-            let mut camera_storage = self.ecs_manager.get_mut_world().write_storage::<components::Camera>();
-            let mut camera = camera_storage.get_mut(self.player).expect("Failed to get Player Camera");
-
-            camera.looking_at = self.camera.get_front();
-        }
-
-        self.ecs_manager.run_systems();
-
-        // sync player position with camera
-        let position_storage = self.ecs_manager.get_mut_world().read_storage::<components::Position>();
-        let position = position_storage.get(self.player).expect("Failed to get Player Position");
-        self.camera.set_positon(position.0);
-        self.camera.update();
-
-        let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
-        self.terrain_manager.update_chunks(position, 6);
-    }
 
     pub fn render(&mut self, timer: Instant){
         self.context.new_frame();
@@ -318,8 +330,7 @@ impl Game{
         let time_left = self.timer.max_ups.checked_sub(elapsed).unwrap_or(std::time::Duration::new(0, 0));
         let timer = Instant::now();
         self.terrain_manager.update_queues();
-        if self.terrain_manager.dirty_queue_size() != 0 || self.terrain_manager.chunk_queue_size() != 0{
-            // println!("Time left to work: {:?}", time_left);
+        if self.terrain_manager.dirty_queue_size() != 0 || self.terrain_manager.chunk_queue_size() != 0 || self.terrain_manager.clean_queue_size() != 0{
             while timer.elapsed() < time_left{
                 self.terrain_manager.unqueue_created_chunk();
                 self.terrain_manager.mesh_chunk();

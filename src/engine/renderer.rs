@@ -33,7 +33,7 @@ impl Context {
         let cb = glutin::ContextBuilder::new()
             .with_depth_buffer(24)
             .with_multisampling(4)
-            .with_vsync(false);
+            .with_vsync(true);
         let mut display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
 
@@ -76,7 +76,7 @@ impl Context {
                 .unwrap();
 
         let render_params = glium::DrawParameters {
-            // polygon_mode: glium::draw_parameters::PolygonMode::Fill,
+            // polygon_mode: glium::draw_parameters::PolygonMode::Line,
             // line_width: Some(10f32),
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,

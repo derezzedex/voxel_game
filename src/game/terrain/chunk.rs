@@ -2,18 +2,19 @@ use cgmath::Vector3;
 use crate::game::terrain::block::*;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::convert::TryInto;
 
 pub const CHUNK_SIZE: usize = 16;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct BlockPosition{
-    pub x: isize,
-    pub y: isize,
-    pub z: isize
+    pub x: usize,
+    pub y: usize,
+    pub z: usize
 }
 
 impl BlockPosition{
-    pub fn new(x: isize, y: isize, z: isize) -> Self{
+    pub fn new(x: usize, y: usize, z: usize) -> Self{
         Self{
             x,
             y,
@@ -23,9 +24,9 @@ impl BlockPosition{
 
     pub fn to_chunk(&self) -> ChunkPosition{
         let chunk_size = CHUNK_SIZE as isize;
-        let x = self.x / chunk_size;
-        let y = self.y / chunk_size;
-        let z = self.z / chunk_size;
+        let x = self.x as isize / chunk_size;
+        let y = self.y as isize / chunk_size;
+        let z = self.z as isize / chunk_size;
 
         ChunkPosition{
             x,
@@ -71,9 +72,9 @@ impl ChunkPosition{
         let z = ((self.z % chunk_size) + chunk_size) % chunk_size;
 
         BlockPosition{
-            x,
-            y,
-            z
+            x: x.try_into().expect("Couldnt convert 'isize' to 'usize'!"),
+            y: y.try_into().expect("Couldnt convert 'isize' to 'usize'!"),
+            z: z.try_into().expect("Couldnt convert 'isize' to 'usize'!")
         }
     }
 }
@@ -98,6 +99,10 @@ impl Chunk{
         Chunk::new(BlockType::Air)
     }
 
+    pub fn has_block_at(&self, position: BlockPosition) -> bool{
+        self.blocks[position.x][position.y][position.z] != BlockType::Air
+    }
+
     pub fn remove_block(&mut self, x: usize, y: usize, z: usize){
         self.blocks[x][y][z] = BlockType::Air;
         self.flag_dirty();
@@ -106,6 +111,13 @@ impl Chunk{
     pub fn place_block(&mut self, x: usize, y: usize, z: usize, block: BlockType){
         self.blocks[x][y][z] = block;
         self.flag_dirty();
+    }
+
+    pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockType{
+        if x >= CHUNK_SIZE{ panic!("X >= CHUNK_SIZE") }
+        else if y >= CHUNK_SIZE{ panic!("Y >= CHUNK_SIZE") }
+        else if z >= CHUNK_SIZE{ panic!("Z >= CHUNK_SIZE") }
+        return self.blocks[x][y][z];
     }
 
     pub fn get_blocks(&self) -> &ChunkBlocks{

@@ -5,9 +5,12 @@ use crate::engine::WinitDisplay;
 
 use conrod::{widget, Borderable, Sizeable, Colorable, Positionable, Widget};
 
+pub type Texture = glium::texture::Texture2d;
+pub type Color = (u8, u8, u8);
+
 const CONSOLE_TEST: [&str; 32] = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."; 32];
 
-widget_ids!(struct Ids { console, console_text, console_input, console_button, fps });
+widget_ids!(struct Ids { console, console_text, console_input, console_button, fps, terrain_image });
 
 pub struct Debug{
     show: bool,
@@ -37,7 +40,8 @@ pub struct Ui{
     pub ui: conrod::Ui,
     ids: Ids,
     renderer: conrod::backend::glium::Renderer,
-    image_map: conrod::image::Map<glium::texture::Texture2d>,
+    image_map: conrod::image::Map<Texture>,
+    image_id: conrod::image::Id,
 
     pub debug: Debug
 }
@@ -54,7 +58,7 @@ impl Ui{
 
         let mut renderer = conrod::backend::glium::Renderer::new(&display.0).expect("Couldn't create Ui renderer!");
 
-        let image_map = conrod::image::Map::<glium::texture::Texture2d>::new();
+        let mut image_map = conrod::image::Map::<glium::texture::Texture2d>::new();
 
         let debug = Debug{
             show: false,
@@ -64,17 +68,26 @@ impl Ui{
             ups: 0.0
         };
 
+        let content = vec![vec![(0u8, 0, 0); 64]; 32];
+        let terrain_image = Texture::new(&display.0, content).expect("Couldn't create texture!");
+        let image_id = image_map.insert(terrain_image);
+
         Self{
             ui,
             ids,
             debug,
             renderer,
-            image_map
+            image_map,
+            image_id
         }
     }
 
     pub fn handle_event(&mut self, e: conrod::event::Input){
         self.ui.handle_event(e);
+    }
+
+    pub fn replace_terrain_image(&mut self, image: Texture){
+        self.image_map.replace(self.image_id, image);
     }
 
     pub fn draw<T: glium::Surface>(&mut self, display: &glium::Display, frame: &mut T){
@@ -123,11 +136,14 @@ impl Ui{
                 }
         }
 
+
         widget::Text::new(&format!("framerate: {:.2}", self.debug.fps))
             .top_left_with_margins_on(ui.window, 20.0, 5.0)
             .color(conrod::color::BLACK)
             .font_size(16)
             .set(self.ids.fps, ui);
+
+        // widget::Image::new(self.image_id).w_h(256., 256.).top_right_with_margins_on(ui.window, 5., 5.).set(self.ids.terrain_image, ui);
 
 
         self.renderer.fill(display, ui.draw(), &self.image_map);

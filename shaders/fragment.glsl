@@ -1,11 +1,12 @@
 #version 150
 
-in vec3 frag_color;
+in vec2 uv_coords;
+in vec2 bpos;
 out vec4 color;
 
-uniform sampler2D t;
+uniform sampler2DArray t;
 
 void main() {
-    vec2 tex_coords = frag_color.xy;
-    color = texture(t, tex_coords);
+  vec2 uv = vec2(uv_coords.x, uv_coords.y);
+  color = texture(t, vec3(uv, bpos.x * 16 + (15 - bpos.y)));
 }

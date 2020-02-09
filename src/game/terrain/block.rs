@@ -45,6 +45,19 @@ pub enum Direction{
     Down
 }
 
+impl From<Direction> for [f32;3]{
+    fn from(item: Direction) -> Self{
+        match item{
+            Direction::North => { [ 0., 0., 1.] },
+            Direction::South => { [ 0., 0., -1.] },
+            Direction::East=>   { [ 1., 0., 0.] },
+            Direction::West =>  { [ -1., 0., 0.] },
+            Direction::Up =>    { [ 0., 1., 0.] },
+            Direction::Down =>  { [ 0., -1., 0.] }
+        }
+    }
+}
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum BlockType{
     Air = 0,

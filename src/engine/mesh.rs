@@ -1,5 +1,9 @@
+use crate::utils::texture::TextureCoords;
+use crate::game::terrain::chunk::CHUNK_SIZE;
 use crate::engine::Vertex;
 use crate::game::terrain::block::*;
+
+const MASK_DIRECTIONS: [Direction; 6] = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
 
 pub struct MeshData{
     pub vertices: Vec<Vertex>,
@@ -34,6 +38,20 @@ impl MeshData{
             ib: glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices[..]).expect("Couldn't create IB")
         }
     }
+
+    pub fn add_face_raw(&mut self, vertices: [Vertex; 4], backface: bool, b_type: BlockType){
+        // let mut indices = if !backface { [2, 0, 1, 1, 3, 2]} else {[2, 3, 1, 1, 0, 2]};
+        let mut indices = [2, 0, 1, 1, 3, 2];
+        let index_count = self.vertices.len() as u32;
+
+        for index in &mut indices {
+            *index += index_count
+        }
+
+        self.vertices.extend_from_slice(&vertices);
+        self.indices.extend_from_slice(&indices);
+    }
+
 
     pub fn add_face(&mut self, face: FaceData){
         let mut vertices = match face.get_direction(){
