@@ -3,19 +3,50 @@ use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
 use std::fs;
 use std::path::Path;
+use glium_text_rusttype as glium_text;
 
-use crate::engine::ui::Ui;
-use crate::engine::WinitDisplay;
 
 pub const DEFAULT_WIDTH: u32 = 800;
 pub const DEFAULT_HEIGHT: u32 = 600;
 
+pub type Text<'a> = glium_text::TextDisplay<&'a glium_text::FontTexture>;
+pub struct GUIManager{
+    system: glium_text::TextSystem,
+    font: glium_text::FontTexture,
+}
+
+impl GUIManager{
+    pub fn new(display: &glium::Display) -> Self{
+        let system = glium_text::TextSystem::new(display);
+
+        let cargo_dir = env!("CARGO_MANIFEST_DIR");
+        let font_data = fs::read(&Path::new(cargo_dir).join("res").join("fonts").join("pixel-operator").join("PixelOperator8.ttf")).expect("Couldn't load font file!");
+        let font = glium_text::FontTexture::new(display, &font_data[..], 100, glium_text::FontTexture::ascii_character_list()).expect("Couldn't create font!");
+
+        Self{
+            system,
+            font
+        }
+    }
+
+    pub fn get_system(&self) -> &glium_text::TextSystem{
+        &self.system
+    }
+
+    pub fn get_font(&self) -> &glium_text::FontTexture{
+        &self.font
+    }
+
+    pub fn text(&self, content: &str) -> Text{
+        glium_text::TextDisplay::new(&self.system, &self.font, content)
+    }
+}
+
 pub struct Context {
     pub events_loop: glium::glutin::EventsLoop,
-    pub ui: Ui,
-    pub display: WinitDisplay,
+    pub display: glium::Display,
     pub shader_program: glium::Program,
-    simple_program: glium::Program,
+    gui: GUIManager,
     window_dimensions: (u32, u32),
     mouse_grab: bool,
     render_params: glium::DrawParameters<'static>,
@@ -37,6 +68,8 @@ impl Context {
         let mut display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
 
+        let gui = GUIManager::new(&display);
+
         display
             .gl_window()
             .window()
@@ -55,26 +88,6 @@ impl Context {
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
                 .unwrap();
 
-        // TESTING SHADER
-        println!("{:?}", &Path::new(cargo_dir).join("simple").join(vert));
-        let vertex_shader_src = fs::read_to_string(
-            &Path::new(cargo_dir)
-                .join("shaders")
-                .join("simple")
-                .join(vert),
-        )
-        .expect("Something went wrong reading the file");
-        let fragment_shader_src = fs::read_to_string(
-            &Path::new(cargo_dir)
-                .join("shaders")
-                .join("simple")
-                .join(frag),
-        )
-        .expect("Something went wrong reading the file");
-        let simple_program =
-            glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
-                .unwrap();
-
         let render_params = glium::DrawParameters {
             // polygon_mode: glium::draw_parameters::PolygonMode::Line,
             // line_width: Some(10f32),
@@ -83,7 +96,7 @@ impl Context {
                 write: true,
                 ..Default::default()
             },
-            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            // backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
 
@@ -92,19 +105,14 @@ impl Context {
         display.gl_window().window().grab_cursor(mouse_grab);
         display.gl_window().window().hide_cursor(mouse_grab);
 
-        let display = WinitDisplay(display);
-
-        let ui = Ui::new(&display, DEFAULT_WIDTH as f64, DEFAULT_HEIGHT as f64);
-
         Self {
             events_loop,
             display,
+            gui,
             window_dimensions,
             mouse_grab,
             render_params,
-            ui,
             shader_program,
-            simple_program,
             frame,
         }
     }
@@ -112,12 +120,10 @@ impl Context {
     pub fn grab_mouse(&mut self) {
         self.mouse_grab = !self.mouse_grab;
         self.display
-            .0
             .gl_window()
             .window()
             .grab_cursor(self.mouse_grab);
         self.display
-            .0
             .gl_window()
             .window()
             .hide_cursor(self.mouse_grab);
@@ -127,7 +133,6 @@ impl Context {
         if self.mouse_grab {
             let (width, height) = self.window_dimensions();
             self.display
-                .0
                 .gl_window()
                 .window()
                 .set_cursor_position((width as f64 / 2., height as f64 / 2.).into());
@@ -135,7 +140,7 @@ impl Context {
     }
 
     pub fn get_display(&self) -> &glium::Display {
-        &self.display.0
+        &self.display
     }
 
     pub fn poll_events(&mut self) -> Vec<glutin::Event> {
@@ -178,39 +183,27 @@ impl Context {
             .unwrap();
     }
 
-    pub fn draw_no_indices<T: AsUniformValue, R: Uniforms>(
-        &mut self,
-        vb: &glium::VertexBuffer<Vertex>,
-        ib: &glium::index::NoIndices,
-        u: &glium::uniforms::UniformsStorage<T, R>,
-    ) {
-        self.frame
-            .as_mut()
-            .unwrap()
-            .draw(vb, ib, &self.shader_program, u, &self.render_params)
-            .unwrap();
+    pub fn get_gui(&self) -> &GUIManager{
+        &self.gui
     }
 
-    pub fn simple_draw(&mut self, vb: &glium::VertexBuffer<Vertex>, ib: &glium::index::NoIndices) {
-        self.frame
-            .as_mut()
-            .unwrap()
-            .draw(
-                vb,
-                ib,
-                &self.simple_program,
-                &glium::uniforms::EmptyUniforms,
-                &self.render_params,
-            )
-            .unwrap();
+    pub fn get_frame_and_gui(&mut self) -> (&mut glium::Frame, &GUIManager){
+        (self.frame.as_mut().expect("Couldn't get frame"), &self.gui)
     }
+    // pub fn draw_text(&mut self, text: &Text, position: (usize, usize)){
+    //     let text_width = text.get_width();
+    //     let (w, h) = self.window_dimensions;
+    //     let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
+    //         2.0 / text_width, 0.0, 0.0, 0.0,
+    //         0.0, 2.0 * (w as f32) / (h as f32) / text_width, 0.0, 0.0,
+    //         0.0, 0.0, 1.0, 0.0,
+    //         -1.0, -1.0, 0.0, 1.0f32,
+    //     ).into();
+    //     glium_text::draw(text, &self.gui.system, self.frame.as_mut().expect("Couldn't get frame"), matrix, (1., 1., 0., 1.)).expect("Couldn't draw text!");
+    // }
 
     pub fn get_program(&self) -> &glium::Program {
         &self.shader_program
-    }
-
-    pub fn draw_ui(&mut self) {
-        self.ui.draw(&self.display.0, self.frame.as_mut().unwrap());
     }
 
     pub fn new_frame(&mut self) {

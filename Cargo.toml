@@ -13,11 +13,7 @@ rayon = "*"
 specs = "*"
 specs-derive = "*"
 noise = "*"
-scoped_threadpool = "*"
-threadpool = "*"
-dashmap = "*"
-
-# [profile.release]
-# opt-level = 'z'
-# lto = true
-# codegen-units = 1
+uvth = "*"
+dashmap = "3.4.3"
+slice-deque = "*"
+glium_text_rusttype = "*"

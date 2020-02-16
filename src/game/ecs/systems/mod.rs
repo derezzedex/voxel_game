@@ -1,41 +1,14 @@
-use crate::game::terrain::manager::ChunkMap;
 use cgmath::Point3;
 use rayon::prelude::*;
 use specs::prelude::*;
 
 use crate::game::ecs::components::*;
 use crate::utils::raycast::raycast;
-use crate::game::terrain::chunk::BlockPosition;
 
 use cgmath::{Vector3, InnerSpace, Zero, EuclideanSpace};
 
 #[derive(Default)]
 pub struct DeltaTime(pub f64);
-
-// pub struct Chunks(pub &ChunkMap);
-//
-// pub struct TerrainCollisionSystem;
-// impl<'a> System<'a> for TerrainCollisionSystem{
-//     type SystemData = (
-//         Read<'a, DeltaTime>,
-//         ReadExpect<'a, Chunks>,
-//         WriteStorage<'a, Position>,
-//         ReadStorage<'a, Velocity>,
-//         ReadStorage<'a, BoundingBox>
-//     );
-//
-//     fn run(&mut self, (delta, chunks, velocities, bounding_boxes, positions): Self::SystemData){
-//         (&positions, &velocities, &bounding_boxes)
-//             .par_join()
-//             .for_each(|(bbox, pos, vel)|{
-//                 // let future = pos.0.dot(vel.0);
-//                 let future = pos.0 + vel.0 * delta.0;
-//                 // let callback = |pos: Point3<f64>| -> bool {
-//                 //     let b_pos = BlockPosition::new(pos.x.round(), pos.y.round(), pos.z.round());
-//                 // };
-//             });
-//     }
-// }
 
 pub struct MovementSystem;
 impl<'a> System<'a> for MovementSystem{

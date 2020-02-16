@@ -47,7 +47,11 @@ pub struct TextureStorage{
 
 impl TextureStorage{
     pub fn new(display: &glium::Display, image_path: &Path, image_type: image::ImageFormat, tile_size: u32) -> Self{
-        let data = std::fs::read(image_path).expect("Couldn't read image!");
+        let cargo = env!("CARGO_MANIFEST_DIR");
+        let path = Path::new(cargo).join(image_path);
+        println!("Creating texture array from: {:?}", path);
+
+        let data = std::fs::read(path).expect("Couldn't read image!");
         let bytes = Cursor::new(&data[..]);
         let image = image::load(bytes, image_type).expect("Couldn't load image!").to_rgba();
         let image_dimensions = image.dimensions();

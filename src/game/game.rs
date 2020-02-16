@@ -1,16 +1,15 @@
+use crate::utils::texture::TextureStorage;
 use crate::engine::renderer::{Context, DEFAULT_WIDTH, DEFAULT_HEIGHT};
 use crate::utils::timer::*;
 use crate::utils::camera::Camera;
 use crate::engine::mesh::{Mesh, MeshData};
-use crate::game::terrain::chunk::{ChunkPosition, BlockPosition};
-use crate::game::terrain::block::{BlockType, Direction};
 use crate::game::ecs::ECSManager;
 use crate::utils::raycast::raycast;
 use crate::utils::texture::{TextureAtlas, TextureCoords};
-use crate::game::terrain::block_registry::*;
 use crate::game::terrain::manager::TerrainManager;
 
 use cgmath::{Vector3, Point3, Zero};
+use glium_text_rusttype as glium_text;
 use specs::prelude::*;
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
@@ -24,6 +23,7 @@ pub struct Game{
     context: Context,
     ecs_manager: ECSManager,
     terrain_manager: TerrainManager,
+    texture_storage: TextureStorage,
     player: Entity,
     camera: Camera,
     timer: UpdateTimer,
@@ -36,11 +36,12 @@ impl Game{
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([0., 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([std::f32::MAX.into(), 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
-        let position = ChunkPosition::new(-1, 0, 0);
-        let terrain_manager = TerrainManager::new(position, &context);
+        let texture_path = Path::new("res").join("img").join("texture").join("atlas.png");
+        let texture_storage = TextureStorage::new(context.get_display(), &texture_path, image::PNG, 16);
+        let terrain_manager = TerrainManager::new();
 
         let player_pos = components::Position(camera.get_position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
@@ -61,8 +62,9 @@ impl Game{
         Self{
             context,
             ecs_manager,
-            player,
             terrain_manager,
+            texture_storage,
+            player,
             camera,
             timer,
             running
@@ -93,25 +95,12 @@ impl Game{
     }
 
     pub fn setup(&mut self){
-        // self.terrain_manager.create_chunk_at([0, 0, 1]);
-        // self.terrain_manager.create_chunk_at([0, 1, 0]);
-        // self.terrain_manager.create_chunk_at([1, 0, 0]);
-        // self.terrain_manager.test(0, 0, 0, &self.texture_atlas, &self.registry, self.context.get_display());
-
-        // let terrain_image = self.terrain_manager.generate_image(&self.context.display.0);
-        // self.context.ui.replace_terrain_image(terrain_image);
-
         {
             let mut dt = self.ecs_manager.get_mut_world().write_resource::<DeltaTime>();
             *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
         }
 
-        // self.terrain_manager.test_terrain();
-        // {
-        //     use crate::game::ecs::systems::Chunks;
-        //     let mut chunks = self.ecs_manager.get_mut_world().write_resource::<Chunks>();
-        //     *chunks = Chunks(self.terrain_manager.get_chunks());
-        // }
+        self.terrain_manager.setup();
     }
 
 
@@ -130,19 +119,11 @@ impl Game{
         let position = position_storage.get(self.player).expect("Failed to get Player Position");
         self.camera.set_positon(position.0);
         self.camera.update();
-
-        let position = ChunkPosition::new(position.0.x as isize >> 4, position.0.y as isize >> 4, position.0.z as isize >> 4);
-        self.terrain_manager.update_chunks(position);
     }
 
     pub fn handle_input(&mut self){
         let events = self.context.poll_events();
         for event in &events{
-
-            if let Some(event) = conrod::backend::winit::convert_event(event.clone(), &self.context.display){
-                self.context.ui.handle_event(event);
-            }
-
             match event{
                 glium::glutin::Event::DeviceEvent{ event, ..} => match event{
                     glium::glutin::DeviceEvent::MouseMotion{ delta } => {
@@ -153,62 +134,6 @@ impl Game{
                 },
                 glium::glutin::Event::WindowEvent { event, .. } => match event{
                     glium::glutin::WindowEvent::CloseRequested => self.running = false,
-                    // glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                    //     if state == &glium::glutin::ElementState::Pressed{
-                    //         if button == &glium::glutin::MouseButton::Left{
-                    //             // let position_storage = world.read_storage::<components::Position>();
-                    //             // let position = position_storage.get(self.player).expect("Failed to get Player Position");
-                    //             // let camera_storage = world.read_storage::<components::Camera>();
-                    //             // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
-                    //             let callback = |block| self.terrain_manager.block_at(block);
-                    //             let pos = self.camera.get_position().clone();
-                    //             let front = self.camera.get_front().clone();
-                    //             match raycast(pos, front, 5., callback){
-                    //                 Ok((block, face)) => {
-                    //                     println!("Hit result: {:?} {:?}", block ,face);
-                    //                     let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
-                    //                     let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
-                    //                     let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize).get_offset();
-                    //                     use std::sync::Arc;
-                    //
-                    //                     if let Some(chunk) = chunk{
-                    //                         let c = Arc::make_mut(chunk);
-                    //                         println!("{:?}", block_position);
-                    //                         c.remove_block(block_position.x as usize, block_position.y as usize, block_position.z as usize);
-                    //                     }
-                    //                 },
-                    //                 _ => (),
-                    //             }
-                    //         }else if button == &glium::glutin::MouseButton::Right{
-                    //             // let position_storage = world.read_storage::<components::Position>();
-                    //             // let position = position_storage.get(self.player).expect("Failed to get Player Position");
-                    //             // let camera_storage = world.read_storage::<components::Camera>();
-                    //             // let camera = camera_storage.get(self.player).expect("Failed to get Player Position");
-                    //             let callback = |block| self.terrain_manager.block_at(block);
-                    //             let pos = self.camera.get_position().clone();
-                    //             let front = self.camera.get_front().clone();
-                    //             match raycast(pos, front, 5., callback){
-                    //                 Ok((block, face)) => {
-                    //                     println!("Hit result: {:?} {:?}", block ,face);
-                    //                     let chunk_position = ChunkPosition::new(block.x as isize >> 4, block.y as isize >> 4, block.z as isize >> 4);
-                    //                     let mut chunk = self.terrain_manager.get_mut_chunk(chunk_position);
-                    //                     let block_position = BlockPosition::new(block.x as isize, block.y as isize, block.z as isize);
-                    //                     let block_offset = block_position.get_offset();
-                    //                     use std::sync::Arc;
-                    //
-                    //                     if let Some(chunk) = chunk{
-                    //                         let c = Arc::make_mut(chunk);
-                    //                         println!("{:?}", block_position);
-                    //                         self.terrain_manager.place_block(block, face);
-                    //                     }
-                    //                 },
-                    //                 _ => (),
-                    //             }
-                    //         }
-                    //     }
-                    // },
-                    // glium::glutin::WindowEvent::CursorLeft{ .. } => println!("Left!"),
-                    // glium::glutin::WindowEvent::CursorEntered{ .. } => println!("Entered!"),
                     glium::glutin::WindowEvent::KeyboardInput{input, ..} => {
                         let pressed = match input.state{
                             glium::glutin::ElementState::Pressed => true,
@@ -217,22 +142,6 @@ impl Game{
                         match input.virtual_keycode{
                             Some(key) => {
                                 match key{
-                                    glium::glutin::VirtualKeyCode::Apostrophe => {
-                                        if pressed{
-                                            self.context.ui.debug.switch();
-                                        }
-                                    },
-                                    glium::glutin::VirtualKeyCode::E => {
-                                        // if pressed{
-                                        //     let position_storage = world.read_storage::<components::Position>();
-                                        //     let position = position_storage.get(self.player).expect("Failed to get Player Position").0;
-                                        //     let (x, y, z) = (position.x as isize >> 4, position.y as isize >> 4, position.z as isize >> 4);
-                                        //     println!("Chunk at: {:?}", (x, -1, z));
-                                        //     for i in -4..4{
-                                        //         self.terrain_manager.create_chunk_at([x+i, -1, z]);
-                                        //     }
-                                        // }
-                                    },
                                     glium::glutin::VirtualKeyCode::P => {
                                         if pressed{
                                             self.context.grab_mouse();
@@ -294,12 +203,9 @@ impl Game{
 
     pub fn render(&mut self, timer: Instant){
         self.context.new_frame();
-
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
 
-        let sampled_texture = self.terrain_manager.sampled_atlas();
-        // let texture = self.texture_atlas.get_texture().sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest);
-
+        let texture = self.texture_storage.get_array().sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest).wrap_function(glium::uniforms::SamplerWrapFunction::Repeat);
         let perspective: [[f32; 4]; 4] = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(90f64)), self.context.get_aspect_ratio(), 0.1f64, 1024f64)
             .cast::<f32>() // Casts internal f64 to f32, since 'double' support in video grahics card is fairly recent...
             .expect("Couldn't cast Perspective f64 to f32")
@@ -309,38 +215,40 @@ impl Game{
             .expect("Couldn't cast View f64 to f32")
             .into();
 
-        for ref_mesh in self.terrain_manager.get_meshes(){
-            let (pos, mesh) = (ref_mesh.key(), ref_mesh.value());
-            let (x, y, z) = (pos.x as f32, pos.y as f32, pos.z as f32);
-            let vector_pos = cgmath::Vector3::new(x, y, z) * 16.;
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(vector_pos).into();
-
+        self.terrain_manager.update_meshes(self.context.get_display());
+        for mesh_ref in self.terrain_manager.get_meshes().iter(){
+            let (position, mesh) = mesh_ref.pair();
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::new(position.x as f32, position.y as f32, position.z as f32) * 16.).into();
             let uniforms = uniform!{
                 m: model,
                 v: view,
                 p: perspective,
-                t: sampled_texture
+                t: texture
             };
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
+
         }
 
-        // ui
-        let elapsed = timer.elapsed();
-        let time_left = self.timer.max_ups.checked_sub(elapsed).unwrap_or(std::time::Duration::new(0, 0));
-        let timer = Instant::now();
-        self.terrain_manager.update_queues();
-        if self.terrain_manager.dirty_queue_size() != 0 || self.terrain_manager.chunk_queue_size() != 0 || self.terrain_manager.clean_queue_size() != 0{
-            while timer.elapsed() < time_left{
-                self.terrain_manager.unqueue_created_chunk();
-                self.terrain_manager.mesh_chunk();
-                self.terrain_manager.build_chunk(self.context.get_display());
-            }
+        let (w, h) = self.context.window_dimensions();
+        let position = self.camera.get_position();
+        {
+            let (frame, gui) = self.context.get_frame_and_gui();
+            let text = gui.text(&format!("Position: {:.3?}", position));
+            let text_width = text.get_width();
+            let text_height = text.get_height();
+            let size = 20.;
+            let width = (size/10.) / text_width;
+            let height = (size/10.) * (w as f32) / (h as f32) / text_width;
+
+            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
+                width, 0.0, 0.0, 0.0,
+                0.0, height, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                -1., 1. - height, 0.0, 1.0f32,
+            ).into();
+            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
         }
-
-        self.context.ui.debug.set_fps(to_secs(time_left));
-        self.context.draw_ui();
-
         self.context.finish_frame();
     }
 }
