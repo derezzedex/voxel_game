@@ -36,7 +36,7 @@ impl Game{
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([std::f32::MAX.into(), 0., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([0., 0., -5.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res").join("img").join("texture").join("atlas.png");
@@ -100,7 +100,7 @@ impl Game{
             *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
         }
 
-        self.terrain_manager.setup();
+        self.terrain_manager.setup(self.context.get_display());
     }
 
 
@@ -232,20 +232,39 @@ impl Game{
 
         let (w, h) = self.context.window_dimensions();
         let position = self.camera.get_position();
+        let look_at = self.camera.get_front();
         {
             let (frame, gui) = self.context.get_frame_and_gui();
-            let text = gui.text(&format!("Position: {:.3?}", position));
+            let text = gui.text(&format!("Position: {:.3?}", [position.x, position.y, position.z]));
             let text_width = text.get_width();
             let text_height = text.get_height();
-            let size = 20.;
+            let size = 10.;
             let width = (size/10.) / text_width;
             let height = (size/10.) * (w as f32) / (h as f32) / text_width;
 
             let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-                width, 0.0, 0.0, 0.0,
-                0.0, height, 0.0, 0.0,
+                0.05, 0.0, 0.0, 0.0,
+                0.0, 0.08, 0.0, 0.0,
                 0.0, 0.0, 1.0, 0.0,
-                -1., 1. - height, 0.0, 1.0f32,
+                -1., 1. - 0.08, 0.0, 1.0f32,
+            ).into();
+            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
+        }
+
+        {
+            let (frame, gui) = self.context.get_frame_and_gui();
+            let text = gui.text(&format!("Looking: {:.3?}", [look_at.x, look_at.y, look_at.z]));
+            let text_width = text.get_width();
+            let text_height = text.get_height();
+            let size = 10.;
+            let width = (size/10.) / text_width;
+            let height = (size/10.) * (w as f32) / (h as f32) / text_width;
+
+            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
+                0.05, 0.0, 0.0, 0.0,
+                0.0, 0.08, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                -1., 1. - (0.08*2.), 0.0, 1.0f32,
             ).into();
             glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
         }

@@ -57,7 +57,7 @@ impl TerrainManager{
         }
     }
 
-    pub fn setup(&mut self){
+    pub fn setup(&mut self, display: &glium::Display){
         self.generate_chunk(ChunkPosition::new(0, 0, 0));
     }
 
@@ -97,185 +97,7 @@ impl TerrainManager{
 
     fn pop_dirty(&mut self){
         if let Some(position) = self.dirty.pop_front(){
-            self.mesh_chunk(&position);
-        }
-    }
-
-    fn mesh_chunk(&mut self, position: &ChunkPosition){
-        let sender = self.mesher.sender.clone();
-        if let Some(chunk) = self.chunks.get(position){
-            println!("Meshing: {:?}", position);
-            let chunk = chunk.value().clone();
-            let position = position.clone();
-            let mut input = String::new();
-
-            let mut mask = [BlockType::Air; CHUNKSIZE * CHUNKSIZE];
-            self.threadpool.execute(move ||{
-                let next_block = |pos: [usize;3], axis: usize, backface: bool| -> BlockType{
-                    // println!("Pos: {:?}", pos);
-                    let mut position = [pos[0] as isize, pos[1] as isize, pos[2] as isize];
-                    // position[axis] -= 1;
-                    position[axis] += if backface{ -1 } else { 1 };
-                    if position[axis] < 0 { return BlockType::Air }
-                    chunk.get_block(position[0] as usize, position[1] as usize, position[2] as usize)
-                };
-                let mut mesh = MeshData::new();
-                let mut du = [0f32, 0., 0.];
-                let mut dv = [0f32, 0., 0.];
-
-                for backface in &[false, true]{
-                    // println!("Backface: {:?}", backface);
-                    for d in 0..3{
-                        // match d{
-                        //     0 => { // west or east
-                        //         if *backface{println!("Side: WEST")} else {println!("Side: EAST")}
-                        //     },
-                        //     1 => { // down or up
-                        //         if *backface{println!("Side: DOWN")} else {println!("Side: UP")}
-                        //     },
-                        //     2 => { //south or north
-                        //         if *backface{println!("Side: SOUTH")} else {println!("Side: NORTH")}
-                        //     },
-                        //     _ => panic!("Unknown dimension")
-                        // }
-
-                        let u = (d + 1) %3;
-                        let v = (d + 2) %3;
-                        let mut x = [0, 0, 0];
-                        let mut q = [0, 0, 0];
-                        q[d] = 1;
-                        // println!("Q: {:?}", q);
-
-                        x[d] = -1;
-                        while x[d] <= CHUNKSIZE as isize{
-                            let mut n = 0;
-                            for xv in 0..CHUNKSIZE{
-                                x[v] = xv as isize;
-                                for xu in 0..CHUNKSIZE{
-                                    x[u] = xu as isize;
-
-                                    let face1 = if x[d] >= 0 { chunk.get_block(x[0] as usize, x[1] as usize, x[2] as usize) } else { BlockType::Air };
-                                    let face2 = if x[d] < CHUNKSIZE as isize-1 { chunk.get_block((x[0]+q[0]) as usize, (x[1]+q[1]) as usize, (x[2]+q[2]) as usize) } else { BlockType::Air };
-                                    mask[n] = if (face1 != BlockType::Air && face2 != BlockType::Air && face1 == face2){ BlockType::Air } else if *backface { face2 } else { face1 };
-                                    n+=1;
-                                }
-                            }
-
-                            // x[d] += 1;
-
-                            let mut n = 0;
-                            for j in 0..CHUNKSIZE{
-                                let mut i = 0;
-                                while i < CHUNKSIZE{
-                                    next_block([x[0] as usize, x[1] as usize, x[2] as usize], d, *backface);
-                                    if mask[n] != BlockType::Air {//&& next_block([x[0] as usize, x[1] as usize, x[2] as usize], d, *backface) == BlockType::Air{
-                                        let mut w = 1;
-                                        while i+w < CHUNKSIZE && mask[n+w] != BlockType::Air && mask[n+w] == mask[n]{
-                                            w+=1;
-                                        }
-
-                                        let mut done = false;
-
-                                        let mut h = 1;
-                                        while j+h < CHUNKSIZE{
-                                            for k in 0..w{
-                                                if mask[n+k+h*CHUNKSIZE] == BlockType::Air || mask[n+k+h*CHUNKSIZE] != mask[n]{ done = true; break; }
-                                            }
-                                            if done { break }
-                                            h += 1;
-                                        }
-
-
-                                        // println!();
-                                        // println!("Mask[{:?}]: {:?}", n, mask[n]);
-                                        // println!("Block: {:?}:{:?}", [x[0] as usize, (15-x[1]) as usize, x[2] as usize], chunk.get_block(x[0] as usize, (15-x[1]) as usize, x[2] as usize));
-                                        // println!("Next: {:?}:{:?}", [(x[0]+q[0]) as usize, (15-(x[1]+q[1])) as usize,(x[2]+q[2]) as usize], chunk.get_block((x[0]+q[0]) as usize, (15-(x[1]+q[1])) as usize,(x[2]+q[2]) as usize));
-                                        // println!("Next1: {:?}", next_block([x[0] as usize, (15-x[1]) as usize, x[2] as usize], d, *backface));
-                                        // println!();
-
-                                        x[u] = i as isize;
-                                        x[v] = j as isize;
-                                        du = [0., 0., 0.];
-                                        du[u] = w as f32;
-                                        dv = [0., 0., 0.];
-                                        dv[v] = h as f32;
-
-                                        let mut xn = [x[0] as f32, x[1] as f32, x[2] as f32];
-                                        xn[d] += 1.;
-
-                                        let get_uv = |w, h|{[
-                                            [0.,        0.],
-                                            [w as f32,  0.],
-                                            [0.,        h as f32],
-                                            [w as f32,  h as f32]
-                                        ]};
-                                        let (ix, uvs) = match d{
-                                            0 => { // west or east
-                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))}
-                                            },
-                                            1 => { // down or up
-                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))}
-                                            },
-                                            2 => { //south or north
-                                                if *backface{([1, 0, 3, 2], get_uv(w, h))} else {([0, 1, 2, 3], get_uv(w, h))}
-                                            },
-                                            _ => panic!("Unknown dimension")
-                                        };
-                                        let v = [
-                                            xn,
-                                            [xn[0] + du[0],         xn[1] + du[1],         xn[2] + du[2]],
-                                            [xn[0] + dv[0],         xn[1] + dv[1],         xn[2] + dv[2]],
-                                            [xn[0] + du[0] + dv[0], xn[1] + du[1] + dv[1], xn[2] + du[2] + dv[2]]
-                                        ];
-
-                                        let mut indices = vec![2, 0, 1, 1, 3, 2];
-
-                                        let block = if mask[n] == BlockType::Dirt{
-                                            [2, 15]
-                                        }else if mask[n] == BlockType::Cobblestone{
-                                            [0, 14]
-                                        }else{
-                                            [0, 0]
-                                        };
-
-                                        let vertices = vec![
-                                            Vertex::new(v[ix[0]], uvs[0], block),
-                                            Vertex::new(v[ix[1]], uvs[1], block),
-                                            Vertex::new(v[ix[2]], uvs[2], block),
-                                            Vertex::new(v[ix[3]], uvs[3], block)
-                                        ];
-                                        mesh.add(vertices, indices);
-
-                                        // sender.send((position, mesh.clone()));
-                                        // std::io::stdin().read_line(&mut input).expect("Input error");
-
-                                        //zero
-                                        for l in 0..h{
-                                            for k in 0..w{
-                                                mask[n+k+l*CHUNKSIZE] = BlockType::Air;
-                                            }
-                                        }
-
-                                        i += w;
-                                        n += w;
-                                    }else{
-                                        i += 1;
-                                        n += 1;
-                                    }
-                                }
-                            }
-                            x[d] += 1;
-                        }
-
-                    }
-                }
-                // println!("CPosition: {:?}", position);
-                // println!("Mesh vertices len: {:?}", mesh.vertices.len());
-                if mesh.indices.len() != 0 {
-                    println!("Sending!");
-                    sender.send((position, mesh));
-                }
-            });
+            self.reworked_meshing(&position);
         }
     }
 
@@ -289,78 +111,61 @@ impl TerrainManager{
 
             let mut mask = [BlockType::Air; CHUNKSIZE * CHUNKSIZE];
             self.threadpool.execute(move ||{
+                let get_block = |x: isize, y: isize, z: isize| -> BlockType{
+                    if x < 0 || x > 15{ return BlockType::Air }
+                    if y < 0 || y > 15{ return BlockType::Air }
+                    if z < 0 || z > 15{ return BlockType::Air }
+                    chunk.get_block(x as usize,y as usize,z as usize)
+                };
                 let mut mesh = MeshData::new();
-                let mut du = [0f32, 0., 0.];
-                let mut dv = [0f32, 0., 0.];
 
                 for backface in &[false, true]{
-                    for d in 0..3{
-                        match d{
-                            0 => { // west or east
-                                if *backface{println!("Side: WEST")} else {println!("Side: EAST")}
-                            },
-                            1 => { // down or up
-                                if *backface{println!("Side: DOWN")} else {println!("Side: UP")}
-                            },
-                            2 => { //south or north
-                                if *backface{println!("Side: SOUTH")} else {println!("Side: NORTH")}
-                            },
-                            _ => panic!("Unknown dimension")
-                        }
+                    for dim in 0..3{
+                        let u = (dim + 1) % 3;
+                        let v = (dim + 2) % 3;
+                        let mut dir = [0, 0, 0];
+                        dir[dim] = if !*backface {-1} else{1};
 
-                        let u = (d + 1) %3;
-                        let v = (d + 2) %3;
-                        let mut x = [0, 0, 0];
-                        let mut q = [0, 0, 0];
-                        q[d] = 1;
+                        let mut current = [0isize, 0, 0];
+                        // goes through each 'layer' of blocks in that dim
+                        for layer in 0..CHUNKSIZE as isize{
+                            let mut mask = [[false; CHUNKSIZE]; CHUNKSIZE];
+                            current[dim] = layer; //sets the current layer
+                            for d1 in 0..CHUNKSIZE as isize{
+                                current[v] = d1;
+                                for d2 in 0..CHUNKSIZE as isize{
+                                    current[u] = d2;
+                                    let current_block = get_block(current[0], current[1], current[2]);
 
-                        x[d] = 0;
-                        while x[d] < CHUNKSIZE{
-                            let mut n = 0;
-                            for xv in 0..CHUNKSIZE{
-                                x[v] = xv;
-                                for xu in 0..CHUNKSIZE{
-                                    x[u] = xu;
-
-                                    let face_pos = if *backface { [15-x[0]-q[0], 15-x[1]-q[1], x[2]-q[2]] } else { [15-x[0]+q[0], 15-x[1]+q[1], x[2]+q[2]] };
-                                    mask[n] = if chunk.get_block(face_pos[0], face_pos[1], face_pos[2]) == BlockType::Air { chunk.get_block(15-x[0], 15-x[1], x[2])} else { BlockType::Air };
-
-                                    n+=1;
-                                }
-                            }
-
-                            // x[d] += 1;
-
-                            let mut n = 0;
-                            for j in 0..CHUNKSIZE{
-                                let mut i = 0;
-                                while i < CHUNKSIZE{
-                                    if mask[n] != BlockType::Air {//&& next_block([x[0] as usize, x[1] as usize, x[2] as usize], d, *backface) == BlockType::Air{
-                                        let mut w = 1;
-                                        while i+w < CHUNKSIZE && mask[n+w] != BlockType::Air && mask[n+w] == mask[n]{
-                                            w+=1;
+                                    let (mut w, mut h) = (1, 1);
+                                    // if not masked already, not air and facing air
+                                    if !mask[d1 as usize][d2 as usize] && current_block != BlockType::Air && get_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2]) == BlockType::Air{
+                                        mask[d1 as usize][d2 as usize] = true;
+                                        let mut next = current;
+                                        next[u] += 1;
+                                        // if next block is equal current block, start increasing mesh size and not meshed already too...
+                                        if current_block == get_block(next[0], next[1], next[2]) && !mask[d1 as usize][(d2+1) as usize]{
+                                            w += 1;
+                                            mask[d1 as usize][(d2+1) as usize] = true;
+                                            for i in d2+2..CHUNKSIZE as isize{ // for each remaining block in the current row
+                                                let mut next2 = next;
+                                                next2[u] = i;
+                                                if get_block(next2[0], next2[1], next2[2]) == current_block{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
+                                            }
                                         }
 
-                                        let mut done = false;
-
-                                        let mut h = 1;
-                                        while j+h < CHUNKSIZE{
-                                            for k in 0..w{
-                                                if mask[n+k+h*CHUNKSIZE] == BlockType::Air || mask[n+k+h*CHUNKSIZE] != mask[n]{ done = true; break; }
+                                        'row: for j in d1+1..CHUNKSIZE as isize{ // for each row in the remaining rows
+                                            let mut next2 = next;
+                                            next2[v] = j;
+                                            for i in d2..d2+w as isize{ // for each remaining block in the current row
+                                                next2[u] = i;
+                                                if get_block(next2[0], next2[1], next2[2]) != current_block { break 'row }
                                             }
-                                            if done { break }
+                                            for i in d2..d2+w as isize{
+                                                mask[j as usize][i as usize] = true;
+                                            }
                                             h += 1;
                                         }
-
-                                        x[u] = i;
-                                        x[v] = j;
-                                        du = [0., 0., 0.];
-                                        du[u] = w as f32;
-                                        dv = [0., 0., 0.];
-                                        dv[v] = h as f32;
-
-                                        let mut xn = [x[0] as f32, x[1] as f32, x[2] as f32];
-                                        xn[d] += 1.;
 
                                         let get_uv = |w, h|{[
                                             [0.,        0.],
@@ -368,34 +173,42 @@ impl TerrainManager{
                                             [0.,        h as f32],
                                             [w as f32,  h as f32]
                                         ]};
-                                        let (ix, uvs) = match d{
-                                            0 => { // west or east
+
+                                        let (w, h) = (w as f32, h as f32);
+                                        let (ix, uvs) = match dim{
+                                            0 => { // east or west
                                                 if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))}
                                             },
-                                            1 => { // down or up
-                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))}
+                                            1 => { // up or down
+                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))} //3, 1, 2, 0
                                             },
-                                            2 => { //south or north
+                                            2 => { //north or south
                                                 if *backface{([1, 0, 3, 2], get_uv(w, h))} else {([0, 1, 2, 3], get_uv(w, h))}
                                             },
                                             _ => panic!("Unknown dimension")
                                         };
-                                        let v = [
-                                            xn,
-                                            [xn[0] + du[0],         xn[1] + du[1],         xn[2] + du[2]],
-                                            [xn[0] + dv[0],         xn[1] + dv[1],         xn[2] + dv[2]],
-                                            [xn[0] + du[0] + dv[0], xn[1] + du[1] + dv[1], xn[2] + du[2] + dv[2]]
-                                        ];
 
-                                        let mut indices = vec![2, 0, 1, 1, 3, 2];
+                                        let mut x = [current[0] as f32, current[1] as f32, current[2]  as f32];
+                                        if *backface { x[dim] += 1.; }
+                                        let mut du = [0., 0., 0.];
+                                        du[u] = w;
+                                        let mut dv = [0., 0., 0.];
+                                        dv[v] = h;
 
-                                        let block = if mask[n] == BlockType::Dirt{
+                                        let block = if current_block == BlockType::Dirt{
                                             [2, 15]
-                                        }else if mask[n] == BlockType::Cobblestone{
+                                        }else if current_block == BlockType::Cobblestone{
                                             [0, 14]
                                         }else{
                                             [0, 0]
                                         };
+
+                                        let v = [
+                                            x,
+                                            [x[0] + du[0],         x[1] + du[1],         x[2] + du[2]],
+                                            [x[0] + dv[0],         x[1] + dv[1],         x[2] + dv[2]],
+                                            [x[0] + du[0] + dv[0], x[1] + du[1] + dv[1], x[2] + du[2] + dv[2]]
+                                        ];
 
                                         let vertices = vec![
                                             Vertex::new(v[ix[0]], uvs[0], block),
@@ -403,33 +216,17 @@ impl TerrainManager{
                                             Vertex::new(v[ix[2]], uvs[2], block),
                                             Vertex::new(v[ix[3]], uvs[3], block)
                                         ];
+
+                                        let mut indices = vec![2, 3, 1, 1, 0, 2];
                                         mesh.add(vertices, indices);
-
-                                        // sender.send((position, mesh.clone()));
-                                        // std::io::stdin().read_line(&mut input).expect("Input error");
-
-                                        //zero
-                                        for l in 0..h{
-                                            for k in 0..w{
-                                                mask[n+k+l*CHUNKSIZE] = BlockType::Air;
-                                            }
-                                        }
-
-                                        i += w;
-                                        n += w;
-                                    }else{
-                                        i += 1;
-                                        n += 1;
                                     }
+
                                 }
                             }
-                            x[d] += 1;
-                        }
 
+                        }
                     }
                 }
-                // println!("CPosition: {:?}", position);
-                // println!("Mesh vertices len: {:?}", mesh.vertices.len());
                 if mesh.indices.len() != 0 {
                     println!("Sending!");
                     sender.send((position, mesh));

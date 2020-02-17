@@ -190,18 +190,6 @@ impl Context {
     pub fn get_frame_and_gui(&mut self) -> (&mut glium::Frame, &GUIManager){
         (self.frame.as_mut().expect("Couldn't get frame"), &self.gui)
     }
-    // pub fn draw_text(&mut self, text: &Text, position: (usize, usize)){
-    //     let text_width = text.get_width();
-    //     let (w, h) = self.window_dimensions;
-    //     let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-    //         2.0 / text_width, 0.0, 0.0, 0.0,
-    //         0.0, 2.0 * (w as f32) / (h as f32) / text_width, 0.0, 0.0,
-    //         0.0, 0.0, 1.0, 0.0,
-    //         -1.0, -1.0, 0.0, 1.0f32,
-    //     ).into();
-    //     glium_text::draw(text, &self.gui.system, self.frame.as_mut().expect("Couldn't get frame"), matrix, (1., 1., 0., 1.)).expect("Couldn't draw text!");
-    // }
-
     pub fn get_program(&self) -> &glium::Program {
         &self.shader_program
     }

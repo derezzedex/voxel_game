@@ -22,15 +22,17 @@ fn main() {
 //
 // fn main() {
 //     let mut blocks: [[[u8; CHUNKSIZE]; CHUNKSIZE]; CHUNKSIZE] = [[[0u8; 16]; 16]; 16];
-//     for z in 0..CHUNKSIZE{
-//         for y in 0..CHUNKSIZE{
-//             for x in 0..CHUNKSIZE{
-//                 if x == 0 && z == 0{
-//                     blocks[x][y][z] = 1u8;
-//                 }
-//             }
-//         }
-//     }
+//     // for z in 0..CHUNKSIZE{
+//     //     for y in 0..CHUNKSIZE{
+//     //         for x in 0..CHUNKSIZE{
+//     //             if x == 0 && z == 0{
+//     //                 blocks[x][y][z] = 1u8;
+//     //             }
+//     //         }
+//     //     }
+//     // }
+//     blocks[0][0][0] = 1;
+//     blocks[1][0][0] = 1;
 //
 //     let get_block = |x: isize, y: isize, z: isize| -> u8{
 //         if x < 0 || x > 15{ return 0u8 }
