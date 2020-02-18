@@ -5,6 +5,8 @@ use super::chunk::CHUNKSIZE;
 
 use slice_deque::SliceDeque;
 use dashmap::{DashMap};
+use dashmap::mapref::one::Ref;
+use cgmath::Point3;
 use uvth::{ThreadPoolBuilder, ThreadPool};
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -27,6 +29,7 @@ impl ChunkMesher{
     }
 }
 
+pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
 pub type ChunkMeshMap = DashMap<ChunkPosition, Mesh>;
 pub struct TerrainManager{
@@ -58,14 +61,19 @@ impl TerrainManager{
     }
 
     pub fn setup(&mut self, display: &glium::Display){
-        self.generate_chunk(ChunkPosition::new(0, 0, 0));
+        for x in -2..2{
+            for z in -2..2{
+                self.generate_chunk(ChunkPosition::new(x, -1, z));
+            }
+        }
+        // self.generate_chunk(ChunkPosition::new(0, 0, 0));
+        // self.generate_chunk(ChunkPosition::new(0, -1, 0));
     }
 
     pub fn update_meshes(&mut self, display: &glium::Display){
         self.pop_dirty();
         let received: Vec<_> = self.mesher.receiver.try_iter().collect();
         for (position, data) in &received{
-            println!("Building...");
             let mesh = data.build(display);
             self.meshes.insert(*position, mesh);
         }
@@ -79,19 +87,33 @@ impl TerrainManager{
         &self.meshes
     }
 
+    fn chunk_neighbors(&self, position: &ChunkPosition) -> [Option<ChunkRef>; 6]{
+        let east = self.chunks.get(&Point3::new(position.x+1, position.y, position.z));           // East
+        let west = self.chunks.get(&Point3::new(position.x-1, position.y, position.z));           // West
+        let top = self.chunks.get(&Point3::new(position.x, position.y + 1, position.z));            // Top
+        let bottom = self.chunks.get(&Point3::new(position.x, position.y - 1, position.z));         // Bottom
+        let north = self.chunks.get(&Point3::new(position.x, position.y, position.z + 1));      // North
+        let south = self.chunks.get(&Point3::new(position.x, position.y, position.z - 1));      // South
+
+        [east, west, top, bottom, north, south]
+    }
+
     fn generate_chunk(&mut self, position: ChunkPosition){
-        let mut chunk = Chunk::new(BlockType::Dirt);
-        for z in 0..CHUNKSIZE{
-            for y in 0..CHUNKSIZE{
-                for x in 0..CHUNKSIZE{
-                    if (x == 0 || x == CHUNKSIZE-1) && (y == 0 || y == CHUNKSIZE-1) && (z == 0 || z == CHUNKSIZE-1){
-                        chunk.set_block(x, y, z, BlockType::Cobblestone);
+        let chunks = self.chunks.clone();
+        self.threadpool.execute(move ||{
+            let mut chunk = Chunk::new(BlockType::Cobblestone);
+            for z in 0..CHUNKSIZE{
+                for y in 0..CHUNKSIZE{
+                    for x in 0..CHUNKSIZE{
+                        if y == CHUNKSIZE-1{
+                            chunk.set_block(x, y, z, BlockType::Dirt);
+                        }
                     }
                 }
             }
-        }
-        // chunk.set_block(1, 0, 1, BlockType::Air);
-        self.chunks.insert(position, Arc::new(chunk));
+
+            chunks.insert(position, Arc::new(chunk));
+        });
         self.dirty.push_back(position);
     }
 
@@ -102,21 +124,16 @@ impl TerrainManager{
     }
 
     fn reworked_meshing(&mut self, position: &ChunkPosition){
-        let sender = self.mesher.sender.clone();
         if let Some(chunk) = self.chunks.get(position){
-            println!("Meshing: {:?}", position);
+            let sender = self.mesher.sender.clone();
+            // println!("Meshing: {:?}", position);
             let chunk = chunk.value().clone();
+            let neighbors: Vec<Option<Arc<Chunk>>> = self.chunk_neighbors(position).iter().map(|n_ref| n_ref.as_ref().and_then(|inner| Some(Arc::clone(inner)))).collect();
             let position = position.clone();
             let mut input = String::new();
 
             let mut mask = [BlockType::Air; CHUNKSIZE * CHUNKSIZE];
             self.threadpool.execute(move ||{
-                let get_block = |x: isize, y: isize, z: isize| -> BlockType{
-                    if x < 0 || x > 15{ return BlockType::Air }
-                    if y < 0 || y > 15{ return BlockType::Air }
-                    if z < 0 || z > 15{ return BlockType::Air }
-                    chunk.get_block(x as usize,y as usize,z as usize)
-                };
                 let mut mesh = MeshData::new();
 
                 for backface in &[false, true]{
@@ -135,22 +152,22 @@ impl TerrainManager{
                                 current[v] = d1;
                                 for d2 in 0..CHUNKSIZE as isize{
                                     current[u] = d2;
-                                    let current_block = get_block(current[0], current[1], current[2]);
+                                    let current_block = chunk.check_block(current[0], current[1], current[2], neighbors.clone());
 
                                     let (mut w, mut h) = (1, 1);
                                     // if not masked already, not air and facing air
-                                    if !mask[d1 as usize][d2 as usize] && current_block != BlockType::Air && get_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2]) == BlockType::Air{
+                                    if !mask[d1 as usize][d2 as usize] && current_block != BlockType::Air && chunk.check_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2], neighbors.clone()) == BlockType::Air{
                                         mask[d1 as usize][d2 as usize] = true;
                                         let mut next = current;
                                         next[u] += 1;
                                         // if next block is equal current block, start increasing mesh size and not meshed already too...
-                                        if current_block == get_block(next[0], next[1], next[2]) && !mask[d1 as usize][(d2+1) as usize]{
+                                        if current_block == chunk.check_block(next[0], next[1], next[2], neighbors.clone()) && !mask[d1 as usize][(d2+1) as usize]{
                                             w += 1;
                                             mask[d1 as usize][(d2+1) as usize] = true;
                                             for i in d2+2..CHUNKSIZE as isize{ // for each remaining block in the current row
                                                 let mut next2 = next;
                                                 next2[u] = i;
-                                                if get_block(next2[0], next2[1], next2[2]) == current_block{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
+                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) == current_block{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
                                             }
                                         }
 
@@ -159,7 +176,7 @@ impl TerrainManager{
                                             next2[v] = j;
                                             for i in d2..d2+w as isize{ // for each remaining block in the current row
                                                 next2[u] = i;
-                                                if get_block(next2[0], next2[1], next2[2]) != current_block { break 'row }
+                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) != current_block { break 'row }
                                             }
                                             for i in d2..d2+w as isize{
                                                 mask[j as usize][i as usize] = true;
@@ -228,7 +245,7 @@ impl TerrainManager{
                     }
                 }
                 if mesh.indices.len() != 0 {
-                    println!("Sending!");
+                    // println!("Sending!");
                     sender.send((position, mesh));
                 }
             });

@@ -8,7 +8,6 @@ edition = "2018"
 glium = "0.22"
 cgmath = "*"
 image = "*"
-conrod = { version = "*", features = ["winit", "glium"] }
 rayon = "*"
 specs = "*"
 specs-derive = "*"

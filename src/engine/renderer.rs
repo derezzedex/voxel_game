@@ -62,8 +62,9 @@ impl Context {
             .with_title(title)
             .with_dimensions(window_dimensions.into());
         let cb = glutin::ContextBuilder::new()
+            // .with_srgb(true)
             .with_depth_buffer(24)
-            .with_multisampling(4)
+            // .with_multisampling(4)
             .with_vsync(true);
         let mut display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
@@ -96,7 +97,7 @@ impl Context {
                 write: true,
                 ..Default::default()
             },
-            // backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };
 
