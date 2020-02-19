@@ -6,8 +6,8 @@ use std::path::Path;
 use glium_text_rusttype as glium_text;
 
 
-pub const DEFAULT_WIDTH: u32 = 800;
-pub const DEFAULT_HEIGHT: u32 = 600;
+pub const DEFAULT_WIDTH: u32 = 1024;
+pub const DEFAULT_HEIGHT: u32 = 768;
 
 pub type Text<'a> = glium_text::TextDisplay<&'a glium_text::FontTexture>;
 pub struct GUIManager{
@@ -64,7 +64,7 @@ impl Context {
         let cb = glutin::ContextBuilder::new()
             // .with_srgb(true)
             .with_depth_buffer(24)
-            // .with_multisampling(4)
+            .with_multisampling(4)
             .with_vsync(true);
         let mut display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");

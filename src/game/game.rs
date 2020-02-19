@@ -7,7 +7,10 @@ use crate::engine::mesh::{Mesh, MeshData};
 use crate::game::ecs::ECSManager;
 use crate::utils::raycast::raycast;
 use crate::utils::texture::{TextureAtlas, TextureCoords};
+use crate::utils::frustum_culling::{FrustumCuller, BoundingBox, Intersection};
 use crate::game::terrain::manager::TerrainManager;
+
+use crate::game::registry::{Registry, BlockDataBuilder};
 
 use cgmath::{Vector3, Point3, Zero};
 use glium_text_rusttype as glium_text;
@@ -23,6 +26,7 @@ use std::sync::Arc;
 pub struct Game{
     context: Context,
     ecs_manager: ECSManager,
+    registry: Arc<Registry>,
     terrain_manager: TerrainManager,
     texture_storage: TextureStorage,
     player: Entity,
@@ -37,12 +41,11 @@ impl Game{
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([0., 8., 0.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([-42., 0., 42.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res").join("img").join("texture").join("atlas.png");
         let texture_storage = TextureStorage::new(context.get_display(), &texture_path, image::PNG, 16);
-        let terrain_manager = TerrainManager::new();
 
         let player_pos = components::Position(camera.get_position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
@@ -50,6 +53,9 @@ impl Game{
             looking_at: camera.get_front(),
         };
         let player_controller = components::Controller::new();
+
+        // let perspective = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(40f64)), context.get_aspect_ratio(), 0.1f64, 1024f64);
+        // let frustum_culler = FrustumCuller::from_matrix(perspective);
 
         let mut world = ecs_manager.get_mut_world();
         let player = world
@@ -60,6 +66,45 @@ impl Game{
                         .with(player_controller)
                         .build();
 
+        let mut registry = Registry::new();
+        {
+            use crate::game::terrain::block::Direction;
+            let air = BlockDataBuilder::default()
+                .all_faces([0, 1])
+                .build();
+            registry.block_registry_mut().add("air", air);
+
+            let missing = BlockDataBuilder::default()
+                .all_faces([0, 1])
+                .build();
+            registry.block_registry_mut().add("missing", missing);
+
+            let grass = BlockDataBuilder::default()
+                .all_faces([3, 15])
+                .face(Direction::Top, [0, 15])
+                .face(Direction::Bottom, [2, 15])
+                .build();
+            registry.block_registry_mut().add("grass", grass);
+
+            let dirt = BlockDataBuilder::default()
+                .all_faces([2, 15])
+                .build();
+            registry.block_registry_mut().add("dirt", dirt);
+
+            let stone = BlockDataBuilder::default()
+                .all_faces([1, 15])
+                .build();
+            registry.block_registry_mut().add("stone", stone);
+
+            let bedrock = BlockDataBuilder::default()
+                .all_faces([1, 14])
+                .breakable(false)
+                .build();
+            registry.block_registry_mut().add("bedrock", bedrock);
+        }
+        let registry = Arc::new(registry);
+        let terrain_manager = TerrainManager::new(&registry);
+
         Self{
             context,
             ecs_manager,
@@ -67,6 +112,7 @@ impl Game{
             texture_storage,
             player,
             camera,
+            registry,
             timer,
             running
         }
@@ -228,12 +274,11 @@ impl Game{
             };
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
-
         }
 
-        // let (w, h) = self.context.window_dimensions();
-        // let position = self.camera.get_position();
-        // let look_at = self.camera.get_front();
+        let (w, h) = self.context.window_dimensions();
+        let position = self.camera.get_position();
+        let look_at = self.camera.get_front();
         // {
         //     let (frame, gui) = self.context.get_frame_and_gui();
         //     let text = gui.text(&format!("Position: {:.3?}", [position.x, position.y, position.z]));

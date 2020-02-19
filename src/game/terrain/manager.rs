@@ -1,8 +1,12 @@
+use crate::game::terrain::block::Direction;
+use crate::game::registry::Registry;
 use crate::engine::Vertex;
 use crate::engine::mesh::{Mesh, MeshData};
-use super::chunk::{ChunkPosition, Chunk, BlockType};
+use super::chunk::{ChunkPosition, Chunk};
+use super::block::BlockType;
 use super::chunk::CHUNKSIZE;
 
+use std::convert::TryFrom;
 use slice_deque::SliceDeque;
 use dashmap::{DashMap};
 use dashmap::mapref::one::Ref;
@@ -12,6 +16,10 @@ use uvth::{ThreadPoolBuilder, ThreadPool};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
+
+pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64{
+    b[0] + ((s - a[0])*(b[1] - b[0]))/(a[1] - a[0])
+}
 
 pub type MeshMessage = (ChunkPosition, MeshData);
 pub struct ChunkMesher{
@@ -35,6 +43,7 @@ pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
 pub type ChunkMeshMap = DashMap<ChunkPosition, Mesh>;
 pub struct TerrainManager{
     chunks: Arc<ChunkMap>,
+    registry: Arc<Registry>,
     threadpool: ThreadPool,
     mesher: ChunkMesher,
     dirty: SliceDeque<ChunkPosition>,
@@ -43,7 +52,7 @@ pub struct TerrainManager{
 }
 
 impl TerrainManager{
-    pub fn new() -> Self{
+    pub fn new(registry: &Arc<Registry>) -> Self{
         let chunks = Arc::new(ChunkMap::default());
         let meshes = ChunkMeshMap::default();
 
@@ -54,10 +63,12 @@ impl TerrainManager{
         let dirty = SliceDeque::new();
 
         let noise = Arc::new(Fbm::new().set_seed(10291302));
+        let registry = registry.clone();
 
         Self{
             chunks,
             threadpool,
+            registry,
             mesher,
             dirty,
             meshes,
@@ -68,21 +79,17 @@ impl TerrainManager{
     pub fn setup(&mut self, display: &glium::Display){
         let distance = 1;
         for z in -distance..distance{
-            for y in -distance..=0{
-                for x in -distance..distance{
-                    self.generate_chunk(ChunkPosition::new(x, y, z));
-                }
+            for x in -distance..distance{
+                self.generate_chunk(ChunkPosition::new(x, -1, z));
             }
         }
-        // self.generate_chunk(ChunkPosition::new(0, 0, 0));
-        // self.generate_chunk(ChunkPosition::new(0, -1, 0));
     }
 
     pub fn update_meshes(&mut self, display: &glium::Display){
         // self.pop_dirty();
         for c_ref in self.chunks.clone().iter(){
             if !self.meshes.contains_key(c_ref.key()){
-                self.reworked_meshing(c_ref.key());
+                self.mesh(c_ref.key());
             }
         }
 
@@ -115,15 +122,30 @@ impl TerrainManager{
     fn generate_chunk(&mut self, position: ChunkPosition){
         let chunks = self.chunks.clone();
         let noise = self.noise.clone();
+        let registry = self.registry.clone();
         self.threadpool.execute(move ||{
-            let mut chunk = Chunk::new(BlockType::Air);
+            let mut chunk = Chunk::new(0);
             for z in 0..CHUNKSIZE{
                 for y in 0..CHUNKSIZE{
                     for x in 0..CHUNKSIZE{
-                        if ((position.y * CHUNKSIZE as isize + y as isize) as f64) == CHUNKSIZE as f64 - 1.{
-                            chunk.set_block(x, y, z, BlockType::Dirt);
-                        }else if ((position.y * CHUNKSIZE as isize + y as isize) as f64) < CHUNKSIZE as f64 - 1.{
-                            chunk.set_block(x, y, z, BlockType::Cobblestone);
+                        let nx = ((position.x * CHUNKSIZE as isize + x as isize) as f64);
+                        let ny = ((position.y * CHUNKSIZE as isize + y as isize) as f64);
+                        let nz = ((position.z * CHUNKSIZE as isize + z as isize) as f64);
+
+                        let height = range_map(2. * noise.get([nx*0.01, nz*0.01]), [-1., 1.], [0., CHUNKSIZE as f64 / 2.]).round();
+
+                        if ny == -height{
+                            let block = registry.block_registry().id_of("grass").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny == -(CHUNKSIZE as f64){
+                            let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny < -height - 3.{
+                            let block = registry.block_registry().id_of("stone").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny < -height{
+                            let block = registry.block_registry().id_of("dirt").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
                         }
                     }
                 }
@@ -131,26 +153,19 @@ impl TerrainManager{
 
             chunks.insert(position, Arc::new(chunk));
         });
-        // std::thread::sleep_ms(1000);
-        // self.dirty.push_back(position);
     }
 
-    fn pop_dirty(&mut self){
-        if let Some(position) = self.dirty.pop_front(){
-            self.reworked_meshing(&position);
-        }
-    }
-
-    fn reworked_meshing(&mut self, position: &ChunkPosition){
+    fn mesh(&mut self, position: &ChunkPosition){
         if let Some(chunk) = self.chunks.get(position){
             let sender = self.mesher.sender.clone();
+            let registry = self.registry.clone();
             // println!("Meshing: {:?}", position);
             let chunk = chunk.value().clone();
             let neighbors: Vec<Option<Arc<Chunk>>> = self.chunk_neighbors(position).iter().map(|n_ref| n_ref.as_ref().and_then(|inner| Some(Arc::clone(inner)))).collect();
             let position = position.clone();
             let mut input = String::new();
 
-            let mut mask = [BlockType::Air; CHUNKSIZE * CHUNKSIZE];
+            let mut mask = [0; CHUNKSIZE * CHUNKSIZE];
             self.threadpool.execute(move ||{
                 let mut mesh = MeshData::new();
 
@@ -174,18 +189,20 @@ impl TerrainManager{
 
                                     let (mut w, mut h) = (1, 1);
                                     // if not masked already, not air and facing air
-                                    if !mask[d1 as usize][d2 as usize] && current_block != BlockType::Air && chunk.check_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2], neighbors.clone()) == BlockType::Air{
+                                    if !mask[d1 as usize][d2 as usize] && current_block != 0 && chunk.check_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2], neighbors.clone()) == 0{
                                         mask[d1 as usize][d2 as usize] = true;
                                         let mut next = current;
                                         next[u] += 1;
                                         // if next block is equal current block, start increasing mesh size and not meshed already too...
-                                        if current_block == chunk.check_block(next[0], next[1], next[2], neighbors.clone()) && !mask[d1 as usize][(d2+1) as usize]{
-                                            w += 1;
-                                            mask[d1 as usize][(d2+1) as usize] = true;
-                                            for i in d2+2..CHUNKSIZE as isize{ // for each remaining block in the current row
-                                                let mut next2 = next;
-                                                next2[u] = i;
-                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) == current_block{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
+                                        if ((d2+1) as usize) < CHUNKSIZE{
+                                            if current_block == chunk.check_block(next[0], next[1], next[2], neighbors.clone()) && !mask[d1 as usize][(d2+1) as usize]{
+                                                w += 1;
+                                                mask[d1 as usize][(d2+1) as usize] = true;
+                                                for i in d2+2..CHUNKSIZE as isize{ // for each remaining block in the current row
+                                                    let mut next2 = next;
+                                                    next2[u] = i;
+                                                    if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) == current_block && !mask[d1 as usize][i as usize]{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
+                                                }
                                             }
                                         }
 
@@ -194,7 +211,7 @@ impl TerrainManager{
                                             next2[v] = j;
                                             for i in d2..d2+w as isize{ // for each remaining block in the current row
                                                 next2[u] = i;
-                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) != current_block { break 'row }
+                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) != current_block || mask[i as usize][j as usize]{ break 'row }
                                             }
                                             for i in d2..d2+w as isize{
                                                 mask[j as usize][i as usize] = true;
@@ -230,13 +247,14 @@ impl TerrainManager{
                                         let mut dv = [0., 0., 0.];
                                         dv[v] = h;
 
-                                        let block = if current_block == BlockType::Dirt{
-                                            [2, 15]
-                                        }else if current_block == BlockType::Cobblestone{
-                                            [0, 14]
-                                        }else{
-                                            [0, 0]
-                                        };
+                                        let block = if let Some(block_data) = registry.block_registry().by_id(current_block as usize) { block_data.get_face(Direction::try_from(u).unwrap_or(Direction::East)) } else{ [0, 1] };
+                                        // let block = if current_block == BlockType::Dirt{
+                                        //     [2, 15]
+                                        // }else if current_block == BlockType::Cobblestone{
+                                        //     [0, 14]
+                                        // }else{
+                                        //     [0, 0]
+                                        // };
 
                                         let v = [
                                             x,
