@@ -20,7 +20,7 @@ pub enum BlockType{
 
 pub type ChunkPosition = Point3<isize>;
 
-pub const CHUNKSIZE: usize = 32;
+pub const CHUNKSIZE: usize = 16;
 // #[derive(Debug)]
 pub struct Chunk{
     blocks: [[[BlockType; CHUNKSIZE]; CHUNKSIZE]; CHUNKSIZE],
@@ -50,6 +50,7 @@ impl Chunk{
 
     pub fn check_block(&self, x: isize, y: isize, z: isize, neighbors: Vec<Option<Arc<Chunk>>>) -> BlockType{
         if x >= CHUNKSIZE as isize {
+            // println!("Block: {:?}", (x, y, z));
             match &neighbors[0]{
                 Some(chunk) => return chunk.get_block(0, y as usize, z as usize),
                 None => return BlockType::Air,
@@ -84,7 +85,6 @@ impl Chunk{
                 None => return BlockType::Air,
             }
         }
-
         self.blocks[x as usize][y as usize][z as usize]
     }
 }

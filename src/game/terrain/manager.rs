@@ -7,6 +7,7 @@ use slice_deque::SliceDeque;
 use dashmap::{DashMap};
 use dashmap::mapref::one::Ref;
 use cgmath::Point3;
+use noise::{Fbm, NoiseFn, Seedable};
 use uvth::{ThreadPoolBuilder, ThreadPool};
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -38,6 +39,7 @@ pub struct TerrainManager{
     mesher: ChunkMesher,
     dirty: SliceDeque<ChunkPosition>,
     meshes: ChunkMeshMap,
+    noise: Arc<Fbm>
 }
 
 impl TerrainManager{
@@ -51,19 +53,25 @@ impl TerrainManager{
         let mesher = ChunkMesher::new();
         let dirty = SliceDeque::new();
 
+        let noise = Arc::new(Fbm::new().set_seed(10291302));
+
         Self{
             chunks,
             threadpool,
             mesher,
             dirty,
             meshes,
+            noise
         }
     }
 
     pub fn setup(&mut self, display: &glium::Display){
-        for x in -2..2{
-            for z in -2..2{
-                self.generate_chunk(ChunkPosition::new(x, -1, z));
+        let distance = 1;
+        for z in -distance..distance{
+            for y in -distance..=0{
+                for x in -distance..distance{
+                    self.generate_chunk(ChunkPosition::new(x, y, z));
+                }
             }
         }
         // self.generate_chunk(ChunkPosition::new(0, 0, 0));
@@ -71,7 +79,13 @@ impl TerrainManager{
     }
 
     pub fn update_meshes(&mut self, display: &glium::Display){
-        self.pop_dirty();
+        // self.pop_dirty();
+        for c_ref in self.chunks.clone().iter(){
+            if !self.meshes.contains_key(c_ref.key()){
+                self.reworked_meshing(c_ref.key());
+            }
+        }
+
         let received: Vec<_> = self.mesher.receiver.try_iter().collect();
         for (position, data) in &received{
             let mesh = data.build(display);
@@ -100,13 +114,16 @@ impl TerrainManager{
 
     fn generate_chunk(&mut self, position: ChunkPosition){
         let chunks = self.chunks.clone();
+        let noise = self.noise.clone();
         self.threadpool.execute(move ||{
-            let mut chunk = Chunk::new(BlockType::Cobblestone);
+            let mut chunk = Chunk::new(BlockType::Air);
             for z in 0..CHUNKSIZE{
                 for y in 0..CHUNKSIZE{
                     for x in 0..CHUNKSIZE{
-                        if y == CHUNKSIZE-1{
+                        if ((position.y * CHUNKSIZE as isize + y as isize) as f64) == CHUNKSIZE as f64 - 1.{
                             chunk.set_block(x, y, z, BlockType::Dirt);
+                        }else if ((position.y * CHUNKSIZE as isize + y as isize) as f64) < CHUNKSIZE as f64 - 1.{
+                            chunk.set_block(x, y, z, BlockType::Cobblestone);
                         }
                     }
                 }
@@ -114,7 +131,8 @@ impl TerrainManager{
 
             chunks.insert(position, Arc::new(chunk));
         });
-        self.dirty.push_back(position);
+        // std::thread::sleep_ms(1000);
+        // self.dirty.push_back(position);
     }
 
     fn pop_dirty(&mut self){
