@@ -8,7 +8,6 @@ use crate::game::terrain::manager::TerrainManager;
 
 use crate::game::registry::{Registry, BlockDataBuilder};
 
-use glium_text_rusttype as glium_text;
 use cgmath::{Vector3, Zero};
 use specs::prelude::*;
 use crate::game::ecs::components;
@@ -272,44 +271,6 @@ impl Game{
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
 
-        // let (w, h) = self.context.window_dimensions();
-        let position = self.camera.get_position();
-        let look_at = self.camera.get_front();
-        {
-            let (frame, gui) = self.context.get_frame_and_gui();
-            let text = gui.text(&format!("Position: {:.3?}", [position.x, position.y, position.z]));
-            // let text_width = text.get_width();
-            // let text_height = text.get_height();
-            // let size = 10.;
-            // let width = (size/10.) / text_width;
-            // let height = (size/10.) * (w as f32) / (h as f32) / text_width;
-
-            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-                0.05, 0.0, 0.0, 0.0,
-                0.0, 0.08, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                -1., 1. - 0.08, 0.0, 1.0f32,
-            ).into();
-            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
-        }
-
-        {
-            let (frame, gui) = self.context.get_frame_and_gui();
-            let text = gui.text(&format!("Looking: {:.3?}", [look_at.x, look_at.y, look_at.z]));
-            // let text_width = text.get_width();
-            // let text_height = text.get_height();
-            // let size = 10.;
-            // let width = (size/10.) / text_width;
-            // let height = (size/10.) * (w as f32) / (h as f32) / text_width;
-
-            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-                0.05, 0.0, 0.0, 0.0,
-                0.0, 0.08, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                -1., 1. - (0.08*2.), 0.0, 1.0f32,
-            ).into();
-            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
-        }
         self.context.finish_frame();
     }
 }

@@ -3,51 +3,15 @@ use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
 use std::fs;
 use std::path::Path;
-use glium_text_rusttype as glium_text;
 
 
 pub const DEFAULT_WIDTH: u32 = 1024;
 pub const DEFAULT_HEIGHT: u32 = 768;
 
-pub type Text<'a> = glium_text::TextDisplay<&'a glium_text::FontTexture>;
-pub struct GUIManager{
-    system: glium_text::TextSystem,
-    font: glium_text::FontTexture,
-}
-
-impl GUIManager{
-    pub fn new(display: &glium::Display) -> Self{
-        let system = glium_text::TextSystem::new(display);
-
-        let cargo_dir = env!("CARGO_MANIFEST_DIR");
-        let font_data = fs::read(&Path::new(cargo_dir).join("res").join("fonts").join("pixel-operator").join("PixelOperator8.ttf")).expect("Couldn't load font file!");
-        let font = glium_text::FontTexture::new(display, &font_data[..], 100, glium_text::FontTexture::ascii_character_list()).expect("Couldn't create font!");
-
-        Self{
-            system,
-            font
-        }
-    }
-
-    pub fn get_system(&self) -> &glium_text::TextSystem{
-        &self.system
-    }
-
-    #[allow(dead_code)]
-    pub fn get_font(&self) -> &glium_text::FontTexture{
-        &self.font
-    }
-
-    pub fn text(&self, content: &str) -> Text{
-        glium_text::TextDisplay::new(&self.system, &self.font, content)
-    }
-}
-
 pub struct Context {
     pub events_loop: glium::glutin::EventsLoop,
     pub display: glium::Display,
     pub shader_program: glium::Program,
-    gui: GUIManager,
     window_dimensions: (u32, u32),
     mouse_grab: bool,
     render_params: glium::DrawParameters<'static>,
@@ -71,7 +35,7 @@ impl Context {
         let display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
 
-        let gui = GUIManager::new(&display);
+        // let gui = GUIManager::new(&display);
 
         display
             .gl_window()
@@ -111,7 +75,7 @@ impl Context {
         Self {
             events_loop,
             display,
-            gui,
+            // gui,
             window_dimensions,
             mouse_grab,
             render_params,
@@ -188,13 +152,6 @@ impl Context {
             .unwrap();
     }
 
-    pub fn get_gui(&self) -> &GUIManager{
-        &self.gui
-    }
-
-    pub fn get_frame_and_gui(&mut self) -> (&mut glium::Frame, &GUIManager){
-        (self.frame.as_mut().expect("Couldn't get frame"), &self.gui)
-    }
     pub fn get_program(&self) -> &glium::Program {
         &self.shader_program
     }

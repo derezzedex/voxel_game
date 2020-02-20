@@ -15,7 +15,6 @@ noise = "*"
 uvth = "*"
 dashmap = "3.4.3"
 slice-deque = "*"
-glium_text_rusttype = "*"
 num_enum = "*"
 
 [profile.release]

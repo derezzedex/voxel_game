@@ -1,7 +1,7 @@
-## Voxel Game
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/windows/rework?label=windows)
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/linux/rework?label=linux)
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/macos/rework?label=macos)  
+# Voxel Game
+![status (windows)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/windows/rework?label=windows)
+![status (linux)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/linux/rework?label=linux)
+![status (macos)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/macos/rework?label=macos)  
 ![license](https://img.shields.io/github/license/derezzedex/voxel_game)
 [![lines of code](https://tokei.rs/b1/github/derezzedex/voxel_game)](https://github.com/derezzedex/voxel_game)
 ![GitHub issues](https://img.shields.io/github/issues/derezzedex/voxel_game)
@@ -17,7 +17,7 @@ This is a personal side project to learn some concepts about computer graphics, 
   - [ ] Terrain
        - [x] Chunk
        - [x] Greedy meshing
-       - [x] Block managment
+       - [x] Block management
        - [ ] Procedural Terrain
        - [ ] Saving/Loading
   - [ ] Rendering
@@ -30,7 +30,7 @@ This is a personal side project to learn some concepts about computer graphics, 
        - [ ] First Person
        - [ ] Third Person
   - [ ] Graphical User Interface
-       - [x] Text
+       - [ ] Text
   - [ ] Audio
        - [ ] Sound effect
        - [ ] 3D Sound
@@ -40,9 +40,14 @@ This is a personal side project to learn some concepts about computer graphics, 
   - [ ] Multiplayer
   - [ ] Modding
 
-### Controls
+## Controls
   - `WASD`  to move around
-  - `Space|Shift` to go up | down
+  - `Space/Shift` to go up/down
 
-### Screenshots
+## Screenshots
   ![screenshot](preview/preview-01.png)
+
+## Resources
+### Inter Font
+Inter is a typeface specially designed for user interfaces with focus on high legibility of small-to-medium sized text on computer screens.
+Get in on the [site](https://rsms.me/inter/) or [repo](https://github.com/rsms/inter).
