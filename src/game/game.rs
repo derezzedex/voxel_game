@@ -1,6 +1,6 @@
 use crate::game::terrain::chunk::CHUNKSIZE;
 use crate::utils::texture::TextureStorage;
-use crate::engine::renderer::{Context, DEFAULT_WIDTH, DEFAULT_HEIGHT};
+use crate::engine::renderer::{Context};
 use crate::utils::timer::*;
 use crate::utils::camera::Camera;
 use crate::game::ecs::ECSManager;
@@ -8,6 +8,7 @@ use crate::game::terrain::manager::TerrainManager;
 
 use crate::game::registry::{Registry, BlockDataBuilder};
 
+use glium_text_rusttype as glium_text;
 use cgmath::{Vector3, Zero};
 use specs::prelude::*;
 use crate::game::ecs::components;
@@ -17,6 +18,7 @@ use std::path::Path;
 use std::time::Instant;
 use std::sync::Arc;
 
+#[allow(dead_code)]
 pub struct Game{
     context: Context,
     ecs_manager: ECSManager,
@@ -35,7 +37,7 @@ impl Game{
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([-42., 0., 42.], DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([-42., 0., 42.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res").join("img").join("texture").join("atlas.png");
@@ -193,37 +195,37 @@ impl Game{
                                         self.running = false;
                                     },
                                     glium::glutin::VirtualKeyCode::W => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.forward = pressed;
                                     },
                                     glium::glutin::VirtualKeyCode::S => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.backward = pressed;
                                     },
                                     glium::glutin::VirtualKeyCode::A => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.left = pressed;
                                     },
                                     glium::glutin::VirtualKeyCode::D => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.right = pressed;
                                     },
                                     glium::glutin::VirtualKeyCode::Space => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.up = pressed;
                                     },
                                     glium::glutin::VirtualKeyCode::LShift => {
-                                        let mut world = self.ecs_manager.get_mut_world();
+                                        let world = self.ecs_manager.get_mut_world();
                                         let mut controller_storage = world.write_storage::<components::Controller>();
                                         let mut controller = controller_storage.get_mut(self.player).expect("Failed to get Player Controller");
                                         controller.down = pressed;
@@ -242,7 +244,7 @@ impl Game{
     }
 
 
-    pub fn render(&mut self, timer: Instant){
+    pub fn render(&mut self, _timer: Instant){
         self.context.new_frame();
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
 
@@ -270,44 +272,44 @@ impl Game{
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
 
-        let (w, h) = self.context.window_dimensions();
+        // let (w, h) = self.context.window_dimensions();
         let position = self.camera.get_position();
         let look_at = self.camera.get_front();
-        // {
-        //     let (frame, gui) = self.context.get_frame_and_gui();
-        //     let text = gui.text(&format!("Position: {:.3?}", [position.x, position.y, position.z]));
-        //     let text_width = text.get_width();
-        //     let text_height = text.get_height();
-        //     let size = 10.;
-        //     let width = (size/10.) / text_width;
-        //     let height = (size/10.) * (w as f32) / (h as f32) / text_width;
-        //
-        //     let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-        //         0.05, 0.0, 0.0, 0.0,
-        //         0.0, 0.08, 0.0, 0.0,
-        //         0.0, 0.0, 1.0, 0.0,
-        //         -1., 1. - 0.08, 0.0, 1.0f32,
-        //     ).into();
-        //     glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
-        // }
-        //
-        // {
-        //     let (frame, gui) = self.context.get_frame_and_gui();
-        //     let text = gui.text(&format!("Looking: {:.3?}", [look_at.x, look_at.y, look_at.z]));
-        //     let text_width = text.get_width();
-        //     let text_height = text.get_height();
-        //     let size = 10.;
-        //     let width = (size/10.) / text_width;
-        //     let height = (size/10.) * (w as f32) / (h as f32) / text_width;
-        //
-        //     let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
-        //         0.05, 0.0, 0.0, 0.0,
-        //         0.0, 0.08, 0.0, 0.0,
-        //         0.0, 0.0, 1.0, 0.0,
-        //         -1., 1. - (0.08*2.), 0.0, 1.0f32,
-        //     ).into();
-        //     glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
-        // }
+        {
+            let (frame, gui) = self.context.get_frame_and_gui();
+            let text = gui.text(&format!("Position: {:.3?}", [position.x, position.y, position.z]));
+            // let text_width = text.get_width();
+            // let text_height = text.get_height();
+            // let size = 10.;
+            // let width = (size/10.) / text_width;
+            // let height = (size/10.) * (w as f32) / (h as f32) / text_width;
+
+            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
+                0.05, 0.0, 0.0, 0.0,
+                0.0, 0.08, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                -1., 1. - 0.08, 0.0, 1.0f32,
+            ).into();
+            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
+        }
+
+        {
+            let (frame, gui) = self.context.get_frame_and_gui();
+            let text = gui.text(&format!("Looking: {:.3?}", [look_at.x, look_at.y, look_at.z]));
+            // let text_width = text.get_width();
+            // let text_height = text.get_height();
+            // let size = 10.;
+            // let width = (size/10.) / text_width;
+            // let height = (size/10.) * (w as f32) / (h as f32) / text_width;
+
+            let matrix:[[f32; 4]; 4] = cgmath::Matrix4::new(
+                0.05, 0.0, 0.0, 0.0,
+                0.0, 0.08, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                -1., 1. - (0.08*2.), 0.0, 1.0f32,
+            ).into();
+            glium_text::draw(&text, gui.get_system(), frame, matrix, (1., 1., 1., 1.)).expect("Couldn't draw text!");
+        }
         self.context.finish_frame();
     }
 }

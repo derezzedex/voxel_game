@@ -1,10 +1,10 @@
 use dashmap::DashMap;
 use crate::game::terrain::block::{Direction, BlockData};
 
-pub struct ItemData{
-    name: String,
-    max_stack: usize,
-}
+// pub struct ItemData{
+//     name: String,
+//     max_stack: usize,
+// }
 
 pub struct BlockDataBuilder{
     faces: Option<[[u32; 2]; 6]>,
@@ -23,22 +23,13 @@ impl Default for BlockDataBuilder{
 }
 
 impl BlockDataBuilder{
-    pub fn new() -> Self{
-        Self{
-            faces: None,
-            breakable: None,
-            transparent: None
-        }
-    }
-
     pub fn faces(mut self, faces: [[u32; 2]; 6]) -> Self{
         self.faces = Some(faces);
         self
     }
 
-    pub fn all_faces(mut self, face: [u32; 2]) -> Self{
-        self.faces = Some([face; 6]);
-        self
+    pub fn all_faces(self, face: [u32; 2]) -> Self{
+        self.faces([face; 6])
     }
 
     pub fn face(mut self, dir: Direction, face: [u32; 2]) -> Self{
@@ -58,6 +49,7 @@ impl BlockDataBuilder{
         self
     }
 
+    #[allow(dead_code)]
     pub fn transparent(mut self, transparent: bool) -> Self{
         self.transparent = Some(transparent);
         self
@@ -102,6 +94,7 @@ impl BlockRegistry{
         self.blocks.get(id)
     }
 
+    #[allow(dead_code)]
     pub fn by_name(&self, name: &str) -> Option<&BlockData>{
         if let Some(id) = self.ids.get(name){
             return self.by_id(*id);

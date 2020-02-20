@@ -11,13 +11,7 @@ pub enum Direction{
     South = 5
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BlockType{
-    Air,
-    Cobblestone,
-    Dirt
-}
-
+#[allow(dead_code)]
 pub struct BlockData{
     faces: [[u32; 2]; 6],
     breakable: bool,

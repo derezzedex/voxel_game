@@ -1,45 +1,46 @@
-use cgmath::{Point3, Vector3, InnerSpace, Zero};
+use cgmath::{Point3, Vector3, Zero};
 
-pub fn modulus(value: f64, modulus: f64) -> f64{
-    return (value % modulus + modulus) % modulus;
-}
-
-pub fn intbound(mut s: f64, ds: f64) -> f64{
-    if ds < 0.0{
-        return intbound(-s, -ds);
-    }else{
-        s = modulus(s, 1.0);
-        return (1.0 - s) / ds;
-    }
-}
-
-pub fn signum(num: f64) -> f64{
-    if num > 0.0{
-        return 1.0;
-    }else if num < 0.0{
-        return -1.0;
-    }else{
-        return 0.0;
-    }
-}
-
-pub fn bounding(step: f64, min: f64, max: f64, v: f64) -> bool{
-    if step > 0.0{
-        return v < max;
-    }else{
-        return v >= min;
-    }
-}
+// pub fn modulus(value: f64, modulus: f64) -> f64{
+//     return (value % modulus + modulus) % modulus;
+// }
+//
+// pub fn intbound(mut s: f64, ds: f64) -> f64{
+//     if ds < 0.0{
+//         return intbound(-s, -ds);
+//     }else{
+//         s = modulus(s, 1.0);
+//         return (1.0 - s) / ds;
+//     }
+// }
+//
+// pub fn signum(num: f64) -> f64{
+//     if num > 0.0{
+//         return 1.0;
+//     }else if num < 0.0{
+//         return -1.0;
+//     }else{
+//         return 0.0;
+//     }
+// }
+//
+// pub fn bounding(step: f64, min: f64, max: f64, v: f64) -> bool{
+//     if step > 0.0{
+//         return v < max;
+//     }else{
+//         return v >= min;
+//     }
+// }
 
 pub enum RayCastError{
-    ZeroDirection,
+    // ZeroDirection,
     NoCollision
 }
 
-pub const MAX_SEARCH: Vector3<f64> = Vector3::new(16., 16., 16.);
-pub const MIN_SEARCH: Vector3<f64> = Vector3::new(0., 0., 0.);
+// pub const MAX_SEARCH: Vector3<f64> = Vector3::new(16., 16., 16.);
+// pub const MIN_SEARCH: Vector3<f64> = Vector3::new(0., 0., 0.);
 
-pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, mut radius: f64, callback: T) -> Result<(Point3<f64>, Vector3<f64>), RayCastError>
+#[allow(dead_code)]
+pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, radius: f64, callback: T) -> Result<(Point3<f64>, Vector3<f64>), RayCastError>
     where T: Fn(Point3<f64>) -> bool{
 
     origin.x += 0.5;
@@ -47,7 +48,7 @@ pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, mut radius: f6
     origin.z += 0.5;
 
     end *= radius;
-    let mut end = origin + end;
+    let end = origin + end;
     // end.x += 0.5;
     // end.y += 0.5;
     // end.z += 0.5;
@@ -112,15 +113,15 @@ pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, mut radius: f6
     };
     let mut face = Vector3::zero();
 
-    while true{
+    loop{
         let pos = Point3::new(i as f64, j as f64, k as f64);
 
         if callback(pos){
             return Ok((pos, face));
         }
 
-        if (tx <= ty && tx <= tz){
-            if (i == iend) {break}
+        if tx <= ty && tx <= tz {
+            if i == iend {break}
             tx += deltatx;
             i += di;
 
@@ -134,7 +135,7 @@ pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, mut radius: f6
             }
             // if di == -1 move neg x
         }else if ty <= tz{
-            if (j == jend) {break}
+            if j == jend {break}
             ty += deltaty;
             j += dj;
 
@@ -148,7 +149,7 @@ pub fn raycast<T>(mut origin: Point3<f64>, mut end: Vector3<f64>, mut radius: f6
             }
             // if dj == -1 move neg y
         }else{
-            if (k == kend) {break}
+            if k == kend {break}
             tz += deltatz;
             k += dk;
 

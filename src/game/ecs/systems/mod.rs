@@ -1,11 +1,9 @@
-use cgmath::Point3;
 use rayon::prelude::*;
 use specs::prelude::*;
 
 use crate::game::ecs::components::*;
-use crate::utils::raycast::raycast;
 
-use cgmath::{Vector3, InnerSpace, Zero, EuclideanSpace};
+use cgmath::{Vector3, InnerSpace, Zero};
 
 #[derive(Default)]
 pub struct DeltaTime(pub f64);
@@ -22,7 +20,6 @@ impl<'a> System<'a> for MovementSystem{
         (&velocities, &mut positions)
             .par_join()
             .for_each(|(vel, pos)|{
-                use cgmath::{Vector3, Zero};
                 pos.0 += vel.0 * delta.0;
             });
     }

@@ -1,4 +1,3 @@
-use crate::utils::texture::TextureCoords;
 use crate::engine::Vertex;
 
 #[derive(Clone)]

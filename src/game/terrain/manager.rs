@@ -3,11 +3,9 @@ use crate::game::registry::Registry;
 use crate::engine::Vertex;
 use crate::engine::mesh::{Mesh, MeshData};
 use super::chunk::{ChunkPosition, Chunk};
-use super::block::BlockType;
 use super::chunk::CHUNKSIZE;
 
 use std::convert::TryFrom;
-use slice_deque::SliceDeque;
 use dashmap::{DashMap};
 use dashmap::mapref::one::Ref;
 use cgmath::Point3;
@@ -46,11 +44,11 @@ pub struct TerrainManager{
     registry: Arc<Registry>,
     threadpool: ThreadPool,
     mesher: ChunkMesher,
-    dirty: SliceDeque<ChunkPosition>,
     meshes: ChunkMeshMap,
     noise: Arc<Fbm>
 }
 
+#[allow(dead_code)]
 impl TerrainManager{
     pub fn new(registry: &Arc<Registry>) -> Self{
         let chunks = Arc::new(ChunkMap::default());
@@ -60,7 +58,6 @@ impl TerrainManager{
             .name("TerrainManager".to_string())
             .build();
         let mesher = ChunkMesher::new();
-        let dirty = SliceDeque::new();
 
         let noise = Arc::new(Fbm::new().set_seed(10291302));
         let registry = registry.clone();
@@ -70,13 +67,12 @@ impl TerrainManager{
             threadpool,
             registry,
             mesher,
-            dirty,
             meshes,
             noise
         }
     }
 
-    pub fn setup(&mut self, display: &glium::Display){
+    pub fn setup(&mut self, _display: &glium::Display){
         let distance = 1;
         for z in -distance..distance{
             for x in -distance..distance{
@@ -128,9 +124,9 @@ impl TerrainManager{
             for z in 0..CHUNKSIZE{
                 for y in 0..CHUNKSIZE{
                     for x in 0..CHUNKSIZE{
-                        let nx = ((position.x * CHUNKSIZE as isize + x as isize) as f64);
-                        let ny = ((position.y * CHUNKSIZE as isize + y as isize) as f64);
-                        let nz = ((position.z * CHUNKSIZE as isize + z as isize) as f64);
+                        let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
+                        let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
+                        let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
 
                         let height = range_map(2. * noise.get([nx*0.01, nz*0.01]), [-1., 1.], [0., CHUNKSIZE as f64 / 2.]).round();
 
@@ -159,13 +155,11 @@ impl TerrainManager{
         if let Some(chunk) = self.chunks.get(position){
             let sender = self.mesher.sender.clone();
             let registry = self.registry.clone();
-            // println!("Meshing: {:?}", position);
+
             let chunk = chunk.value().clone();
             let neighbors: Vec<Option<Arc<Chunk>>> = self.chunk_neighbors(position).iter().map(|n_ref| n_ref.as_ref().and_then(|inner| Some(Arc::clone(inner)))).collect();
             let position = position.clone();
-            let mut input = String::new();
 
-            let mut mask = [0; CHUNKSIZE * CHUNKSIZE];
             self.threadpool.execute(move ||{
                 let mut mesh = MeshData::new();
 
@@ -270,7 +264,7 @@ impl TerrainManager{
                                             Vertex::new(v[ix[3]], uvs[3], block)
                                         ];
 
-                                        let mut indices = vec![2, 3, 1, 1, 0, 2];
+                                        let indices = vec![2, 3, 1, 1, 0, 2];
                                         mesh.add(vertices, indices);
                                     }
 
@@ -282,7 +276,7 @@ impl TerrainManager{
                 }
                 if mesh.indices.len() != 0 {
                     // println!("Sending!");
-                    sender.send((position, mesh));
+                    sender.send((position, mesh)).expect("Couldn't send chunk to main thread!");
                 }
             });
         }

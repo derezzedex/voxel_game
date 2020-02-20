@@ -33,6 +33,7 @@ impl GUIManager{
         &self.system
     }
 
+    #[allow(dead_code)]
     pub fn get_font(&self) -> &glium_text::FontTexture{
         &self.font
     }
@@ -53,6 +54,7 @@ pub struct Context {
     pub frame: Option<glium::Frame>,
 }
 
+#[allow(dead_code)]
 impl Context {
     pub fn new(title: &str, vert: &str, frag: &str) -> Self {
         let window_dimensions = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -66,7 +68,7 @@ impl Context {
             .with_depth_buffer(24)
             .with_multisampling(4)
             .with_vsync(true);
-        let mut display =
+        let display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
 
         let gui = GUIManager::new(&display);
@@ -103,7 +105,7 @@ impl Context {
 
         let frame = None;
         let mouse_grab = true;
-        display.gl_window().window().grab_cursor(mouse_grab);
+        display.gl_window().window().grab_cursor(mouse_grab).expect("Couldn't grab the cursor!");
         display.gl_window().window().hide_cursor(mouse_grab);
 
         Self {
@@ -123,7 +125,8 @@ impl Context {
         self.display
             .gl_window()
             .window()
-            .grab_cursor(self.mouse_grab);
+            .grab_cursor(self.mouse_grab)
+            .expect("Couldn't grab the cursor!");
         self.display
             .gl_window()
             .window()
@@ -136,7 +139,8 @@ impl Context {
             self.display
                 .gl_window()
                 .window()
-                .set_cursor_position((width as f64 / 2., height as f64 / 2.).into());
+                .set_cursor_position((width as f64 / 2., height as f64 / 2.).into())
+                .expect("Couldn't set the cursor position!");
         }
     }
 
@@ -201,6 +205,6 @@ impl Context {
     }
 
     pub fn finish_frame(&mut self) {
-        self.frame.take().unwrap().finish();
+        self.frame.take().unwrap().finish().expect("Couldn't finish frame!");
     }
 }

@@ -1,6 +1,5 @@
 use cgmath::Point3;
 use std::sync::Arc;
-use super::block::{Direction, BlockType};
 
 pub type ChunkPosition = Point3<isize>;
 
@@ -16,22 +15,15 @@ impl Chunk{
             blocks: [[[filler; CHUNKSIZE]; CHUNKSIZE]; CHUNKSIZE],
         }
     }
-    //
-    // pub fn get_block(&self, x: usize, y: usize, z: usize) -> BlockType{
-    //     if x >= CHUNKSIZE || y >= CHUNKSIZE || z >= CHUNKSIZE{
-    //         return 0;
-    //     }
-    //     self.blocks[x][y][z]
-    // }
 
     pub fn set_block(&mut self, x: usize, y: usize, z: usize, block: usize){
         self.blocks[x][y][z] = block;
     }
 
     pub fn get_block(&self, x: usize, y: usize, z: usize) -> usize{
-        if x >= CHUNKSIZE { println!("Error: {:?}", [x, y, z])}
-        if y >= CHUNKSIZE { println!("Error: {:?}", [x, y, z])}
-        if z >= CHUNKSIZE { println!("Error: {:?}", [x, y, z])}
+        if x >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
+        if y >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
+        if z >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
         self.blocks[x][y][z]
     }
 

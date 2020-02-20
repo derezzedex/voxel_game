@@ -42,6 +42,7 @@ impl ECSManager{
         self.world.maintain();
     }
 
+    #[allow(dead_code)]
     pub fn read_storage<T: specs::Component>(&self) -> ReadStorage<T>{
         self.world.read_storage::<T>()
     }
