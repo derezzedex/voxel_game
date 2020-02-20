@@ -1,12 +1,8 @@
-#![allow(warnings)]
-// #![windows_subsystem = "windows"]
 #[macro_use]
 extern crate glium;
 extern crate cgmath;
 extern crate image;
 extern crate rayon;
-#[macro_use]
-extern crate conrod;
 
 mod engine;
 mod game;

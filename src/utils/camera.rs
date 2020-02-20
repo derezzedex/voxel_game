@@ -1,5 +1,4 @@
-use glium::glutin;
-use cgmath::{Point3, Vector3, Matrix4, EuclideanSpace, InnerSpace, Zero};
+use cgmath::{Point3, Vector3, Matrix4, InnerSpace, Zero};
 
 const SENSITIVITY: f64 = 0.08;
 
@@ -12,9 +11,9 @@ pub struct Camera{
 }
 
 impl Camera{
-    pub fn new(position: [f64; 3], aspect_ratio: f64) -> Self{
+    pub fn new(position: [f64; 3]) -> Self{
         let position = cgmath::Point3::new(position[0], position[1], position[2]);
-        let front = cgmath::Vector3::new(0.01, 0.01, 0.01);
+        let front = cgmath::Vector3::new(0., 0., 1.);
         let view = cgmath::Matrix4::look_at(position, position + front, cgmath::Vector3::unit_y());
 
         let (yaw, pitch) = (0., 0.);

@@ -1,23 +1,22 @@
 [package]
 name = "voxel_game"
-version = "0.1.0"
-authors = ["derezzedex"]
+version = "0.1.1"
+authors = ["derezzedex <richardsoncusto@gmail.com>"]
+description = "Simple voxel game"
+repository = "https://github.com/derezzedex/voxel_game"
+license = "GPL-3.0"
 edition = "2018"
+readme = "README.md"
 
 [dependencies]
 glium = "0.22"
 cgmath = "*"
 image = "*"
-conrod = { version = "*", features = ["winit", "glium"] }
 rayon = "*"
 specs = "*"
 specs-derive = "*"
 noise = "*"
-scoped_threadpool = "*"
-threadpool = "*"
-dashmap = "*"
-
-# [profile.release]
-# opt-level = 'z'
-# lto = true
-# codegen-units = 1
+uvth = "*"
+dashmap = "3.4.3"
+slice-deque = "*"
+num_enum = "*"

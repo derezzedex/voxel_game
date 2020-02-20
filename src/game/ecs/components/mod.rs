@@ -15,6 +15,14 @@ impl Component for Position{
     type Storage = VecStorage<Self>;
 }
 
+// ============ BOUNDINGBOX ============
+/// [0]: TopLeft [1]: BottomRight
+pub struct BoundingBox(pub Point3<f64>);
+
+impl Component for BoundingBox{
+    type Storage = VecStorage<Self>;
+}
+
 // ============ CAMERA ============
 pub struct Camera{
     pub looking_at: Vector3<f64>,

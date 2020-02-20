@@ -1,342 +1,284 @@
-/*
-DashMap<ChunkPosition, Chunk>,
-DashMap<ChunkPosition, Mesh>,
-VecDeque<Chunk>
-*/
-use dashmap::DashMap;
-use dashmap::DashMapRef;
-use dashmap::DashMapRefMut;
-use threadpool::ThreadPool;
-use noise::{NoiseFn, Perlin, Seedable};
-use std::borrow::Borrow;
-use std::collections::VecDeque;
-use std::ops::Deref;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
-
+use crate::game::terrain::block::Direction;
+use crate::game::registry::Registry;
+use crate::engine::Vertex;
 use crate::engine::mesh::{Mesh, MeshData};
-use crate::engine::renderer::Context;
-use crate::game::terrain::block::{BlockType, Direction, FaceData};
-use crate::game::terrain::block_registry::{BlockDataBuilder, BlockRegistry};
-use crate::game::terrain::chunk::{Chunk, ChunkPosition, CHUNK_SIZE};
-use crate::utils::texture::{TextureAtlas, TextureCoords};
+use super::chunk::{ChunkPosition, Chunk};
+use super::chunk::CHUNKSIZE;
 
-pub type ChunkRef<'a> = DashMapRef<'a, ChunkPosition, Arc<Chunk>>;
-pub type ChunkRefMut<'a> = DashMapRefMut<'a, ChunkPosition, Arc<Chunk>>;
+use std::convert::TryFrom;
+use dashmap::{DashMap};
+use dashmap::mapref::one::Ref;
+use cgmath::Point3;
+use noise::{Fbm, NoiseFn, Seedable};
+use uvth::{ThreadPoolBuilder, ThreadPool};
+use std::sync::Arc;
+use std::sync::mpsc;
+use std::sync::mpsc::{Sender, Receiver};
 
-type ChunkMeshMessage = (ChunkPosition, MeshData);
+pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64{
+    b[0] + ((s - a[0])*(b[1] - b[0]))/(a[1] - a[0])
+}
+
+pub type MeshMessage = (ChunkPosition, MeshData);
 pub struct ChunkMesher{
-    threadpool: ThreadPool,
-    sender: Sender<ChunkMeshMessage>,
-    receiver: Receiver<ChunkMeshMessage>
+    sender: Sender<MeshMessage>,
+    receiver: Receiver<MeshMessage>
 }
 
 impl ChunkMesher{
     pub fn new() -> Self{
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let threadpool = ThreadPool::new(1);
+        let (sender, receiver) = mpsc::channel();
 
         Self{
-            threadpool,
             sender,
             receiver
         }
     }
-
-    pub fn get_received_messages(&mut self) -> std::sync::mpsc::TryIter<ChunkMeshMessage>{
-        self.receiver.try_iter()
-    }
 }
 
-pub type ChunkUpdateMessage = (ChunkPosition, Arc<Chunk>);
-
-pub struct ChunkUpdater{
+pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
+pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
+pub type ChunkMeshMap = DashMap<ChunkPosition, Mesh>;
+pub struct TerrainManager{
+    chunks: Arc<ChunkMap>,
+    registry: Arc<Registry>,
     threadpool: ThreadPool,
-    sender: Sender<ChunkUpdateMessage>,
-    receiver: Receiver<ChunkUpdateMessage>
+    mesher: ChunkMesher,
+    meshes: ChunkMeshMap,
+    noise: Arc<Fbm>
 }
 
-impl ChunkUpdater{
-    pub fn new() -> Self{
-        let (sender, receiver) = std::sync::mpsc::channel();
-        let threadpool = ThreadPool::new(1);
+#[allow(dead_code)]
+impl TerrainManager{
+    pub fn new(registry: &Arc<Registry>) -> Self{
+        let chunks = Arc::new(ChunkMap::default());
+        let meshes = ChunkMeshMap::default();
+
+        let threadpool = ThreadPoolBuilder::new()
+            .name("TerrainManager".to_string())
+            .build();
+        let mesher = ChunkMesher::new();
+
+        let noise = Arc::new(Fbm::new().set_seed(10291302));
+        let registry = registry.clone();
 
         Self{
-            threadpool,
-            sender,
-            receiver
-        }
-    }
-
-    pub fn get_received_messages(&mut self) -> std::sync::mpsc::TryIter<ChunkUpdateMessage>{
-        self.receiver.try_iter()
-    }
-}
-
-pub struct TerrainManager {
-    registry: Arc<BlockRegistry>,
-    texture_atlas: TextureAtlas,
-    chunks: DashMap<ChunkPosition, Arc<Chunk>>,
-    meshes: DashMap<ChunkPosition, Mesh>,
-    mesher: ChunkMesher,
-    updater: ChunkUpdater,
-    chunk_queue: VecDeque<ChunkUpdateMessage>,
-    dirty_queue: VecDeque<ChunkPosition>,
-    clean_queue: VecDeque<ChunkMeshMessage>,
-    noise: Arc<Perlin>,
-    position: ChunkPosition
-}
-
-impl TerrainManager {
-    pub fn new(position: ChunkPosition, context: &Context) -> Self {
-        // Create and setup the texture atlas
-        let cargo = env!("CARGO_MANIFEST_DIR");
-        let path = std::path::Path::new(cargo)
-            .join("res")
-            .join("img")
-            .join("texture")
-            .join("atlas.png");
-        let texture_atlas = TextureAtlas::new(context.get_display(), &path, 16);
-
-        // Create block registry, which contains the block proprierties
-        let mut registry = BlockRegistry::new();
-
-        // AIR
-        let air_data = BlockDataBuilder::new("air")
-            .orientation(Direction::Up)
-            .north_face(texture_atlas.get_coords((3, 0)))
-            .top_face(texture_atlas.get_coords((0, 0)))
-            .bottom_face(texture_atlas.get_coords((2, 0)))
-            .build();
-        registry.add_block(BlockType::Air, air_data);
-
-        // DIRT
-        let dirt_data = BlockDataBuilder::new("dirt")
-            .orientation(Direction::Up)
-            .north_face(texture_atlas.get_coords((3, 15)))
-            .top_face(texture_atlas.get_coords((0, 15)))
-            .bottom_face(texture_atlas.get_coords((2, 15)))
-            .build();
-        registry.add_block(BlockType::Dirt, dirt_data);
-
-        let registry = Arc::new(registry);
-        let chunks = DashMap::default();
-        let meshes = DashMap::default();
-        let dirty_queue = VecDeque::new();
-        let clean_queue = VecDeque::new();
-        let chunk_queue = VecDeque::new();
-
-        let mesher = ChunkMesher::new();
-        let updater = ChunkUpdater::new();
-
-        let noise = Arc::new(Perlin::new().set_seed(1102130));
-
-        Self {
-            registry,
-            texture_atlas,
             chunks,
-            meshes,
+            threadpool,
+            registry,
             mesher,
-            updater,
-            dirty_queue,
-            clean_queue,
-            chunk_queue,
-            position,
+            meshes,
             noise
         }
     }
 
-    pub fn update_chunks(&mut self, position: ChunkPosition, view_distance: isize) {
-        // calculate new chunks to be loaded
-        // if distance bigger than current view_distance, clear all loaded chunks and load all surrounding chunks
-        // let timer = Instant::now();
-        if self.position != position{
-            println!("Position: {:?}", position);
-            self.position = position;
-            for z in (position.z - view_distance)..(position.z + view_distance) {
-                for y in (position.y - view_distance)..(position.y + view_distance) {
-                    for x in (position.x - view_distance)..(position.x + view_distance) {
-
-                        let chunk_pos = ChunkPosition::new(x, y, z);
-                        let in_bounds = (x > position.x - view_distance
-                            && y > position.y - view_distance
-                            && z > position.z - view_distance
-                            && x < position.x + view_distance
-                            && y < position.y + view_distance
-                            && z < position.z + view_distance);
-                        if !self.chunks.contains_key(&chunk_pos) && in_bounds{
-                            // should create chunk
-                            self.create_chunk(chunk_pos);
-                            self.queue_chunk(chunk_pos);
-                        }else{
-                            if in_bounds{
-                                //update
-                                // if let Some(chunk) = self.chunks.get_mut(&chunk_pos){
-                                // }
-                            }else{
-                                // println!("Removing {:?}", chunk_pos);
-                                self.meshes.remove(&chunk_pos);
-                                self.chunks.remove(&chunk_pos);
-                                self.dirty_neighbors(chunk_pos);
-                            }
-                        }
-                    }
-                }
+    pub fn setup(&mut self, _display: &glium::Display){
+        let distance = 1;
+        for z in -distance..distance{
+            for x in -distance..distance{
+                self.generate_chunk(ChunkPosition::new(x, -1, z));
             }
         }
     }
 
-    pub fn sampled_atlas(&self) -> glium::uniforms::Sampler<'_, glium::texture::Texture2d> {
-        self.texture_atlas
-            .get_texture()
-            .sampled()
-            .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
-    }
-
-    pub fn create_chunk(&mut self, position: ChunkPosition){
-        let noise = self.noise.clone();
-        let sender = self.updater.sender.clone();
-        self.updater.threadpool.execute(move ||{
-            let mut chunk = Chunk::new_air();
-            for z in 0..CHUNK_SIZE {
-                for y in 0..CHUNK_SIZE {
-                    for x in 0..CHUNK_SIZE {
-                        let (mut nx, mut nz) = (
-                            (position.x * CHUNK_SIZE as isize + x as isize) as f64,
-                            (position.z * CHUNK_SIZE as isize + z as isize) as f64,
-                        );
-                        nx /= CHUNK_SIZE as f64;
-                        // nx -= 0.5;
-                        nz /= CHUNK_SIZE as f64;
-                        // nz -= 0.5;
-
-                        let mut h = 6. * noise.get([1. * nx, 1. * nz]);
-                        h += 2. * noise.get([2.01 * nx, 2.01 * nz]);
-                        h += 1. * noise.get([4.01 * nx, 4.01 * nz]);
-                        h += 0.5 * noise.get([2.1 * nx, 2.1 * nz]);
-
-                        if (position.y * CHUNK_SIZE as isize + y as isize) as f64 > h {
-                            continue;
-                        } else {
-                            chunk.get_mut_blocks()[x][y][z] = BlockType::Dirt;
-                        }
-                    }
-                }
-            }
-            sender.send((position, Arc::new(chunk)));
-        });
-
-    }
-
-    pub fn queue_chunk(&mut self, position: ChunkPosition) {
-        self.dirty_queue.push_back(position);
-    }
-
-    pub fn update_queues(&mut self) {
-
-        let mut received_chunks: VecDeque<_> = self.updater.get_received_messages().collect();
-        for chunk in &received_chunks{
-            self.dirty_queue.push_back(chunk.deref().0);
-        }
-        self.chunk_queue.append(&mut received_chunks);
-
-        let mut received_meshes: VecDeque<_> = self.mesher.get_received_messages().collect();
-        self.clean_queue.append(&mut received_meshes);
-    }
-
-    pub fn mesh_chunk(&mut self) {
-        if let Some(position) = self.dirty_queue.pop_front() {
-            if let Some(ref chunk) = self.chunks.get(&position) {
-                let sender = self.mesher.sender.clone();
-                let chunk = chunk.deref().clone();
-                let registry = self.registry.clone();
-                let mut neighbors: Vec<_> = self
-                    .chunk_neighbors(position)
-                    .iter()
-                    .map(|c_ref| c_ref.as_ref().and_then(|inner| Some(Arc::clone(&**inner))))
-                    .collect();
-
-
-                self.mesher.threadpool.execute(move ||{
-                    let mut mesh = MeshData::new();
-                    for x in 0..CHUNK_SIZE{
-                        for y in 0..CHUNK_SIZE{
-                            for z in 0..CHUNK_SIZE{
-                                let block_type = chunk.get_blocks()[x][y][z];
-
-                                if block_type == BlockType::Air{
-                                    continue;
-                                }
-
-                                let directions = [Direction::North, Direction::South, Direction::East, Direction::West, Direction::Up, Direction::Down];
-
-                                for i in 0..directions.len(){
-                                    if chunk.get_neighbor(x, y, z, directions[i], neighbors[i].as_ref()) == BlockType::Air{
-                                        let coords = registry.get_block(block_type).expect("Block not found when meshing...").get_coords(directions[i]);
-                                        let face_data = FaceData::new([x as u8, y as u8, z as u8], block_type, directions[i], *coords);
-                                        mesh.add_face(face_data);
-
-                                    }
-                                }
-
-                            }
-                        }
-                    }
-
-                    sender.send((position, mesh));
-                });
+    pub fn update_meshes(&mut self, display: &glium::Display){
+        // self.pop_dirty();
+        for c_ref in self.chunks.clone().iter(){
+            if !self.meshes.contains_key(c_ref.key()){
+                self.mesh(c_ref.key());
             }
         }
-    }
 
-    pub fn dirty_queue_size(&self) -> usize{
-        self.dirty_queue.len()
-    }
-
-    pub fn chunk_queue_size(&self) -> usize{
-        self.chunk_queue.len()
-    }
-
-    pub fn get_meshes<'a>(&'a self) -> dashmap::Iter<'a, ChunkPosition, Mesh>{
-        self.meshes.iter()
-    }
-
-    pub fn build_chunk(&mut self, display: &glium::Display) {
-        if let Some((position, data)) = self.clean_queue.pop_front() {
+        let received: Vec<_> = self.mesher.receiver.try_iter().collect();
+        for (position, data) in &received{
             let mesh = data.build(display);
-            self.meshes.insert(position, mesh);
+            self.meshes.insert(*position, mesh);
         }
     }
 
-    pub fn unqueue_created_chunk(&mut self){
-        if let Some((position, chunk)) = self.chunk_queue.pop_front(){
-            self.chunks.insert(position, chunk);
+    pub fn get_chunks(&self) -> &ChunkMap{
+        &self.chunks
+    }
+
+    pub fn get_meshes(&self) -> &ChunkMeshMap{
+        &self.meshes
+    }
+
+    fn chunk_neighbors(&self, position: &ChunkPosition) -> [Option<ChunkRef>; 6]{
+        let east = self.chunks.get(&Point3::new(position.x+1, position.y, position.z));           // East
+        let west = self.chunks.get(&Point3::new(position.x-1, position.y, position.z));           // West
+        let top = self.chunks.get(&Point3::new(position.x, position.y + 1, position.z));            // Top
+        let bottom = self.chunks.get(&Point3::new(position.x, position.y - 1, position.z));         // Bottom
+        let north = self.chunks.get(&Point3::new(position.x, position.y, position.z + 1));      // North
+        let south = self.chunks.get(&Point3::new(position.x, position.y, position.z - 1));      // South
+
+        [east, west, top, bottom, north, south]
+    }
+
+    fn generate_chunk(&mut self, position: ChunkPosition){
+        let chunks = self.chunks.clone();
+        let noise = self.noise.clone();
+        let registry = self.registry.clone();
+        self.threadpool.execute(move ||{
+            let mut chunk = Chunk::new(0);
+            for z in 0..CHUNKSIZE{
+                for y in 0..CHUNKSIZE{
+                    for x in 0..CHUNKSIZE{
+                        let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
+                        let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
+                        let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
+
+                        let height = range_map(2. * noise.get([nx*0.01, nz*0.01]), [-1., 1.], [0., CHUNKSIZE as f64 / 2.]).round();
+
+                        if ny == -height{
+                            let block = registry.block_registry().id_of("grass").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny == -(CHUNKSIZE as f64){
+                            let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny < -height - 3.{
+                            let block = registry.block_registry().id_of("stone").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }else if ny < -height{
+                            let block = registry.block_registry().id_of("dirt").unwrap_or(1);
+                            chunk.set_block(x, y, z, block);
+                        }
+                    }
+                }
+            }
+
+            chunks.insert(position, Arc::new(chunk));
+        });
+    }
+
+    fn mesh(&mut self, position: &ChunkPosition){
+        if let Some(chunk) = self.chunks.get(position){
+            let sender = self.mesher.sender.clone();
+            let registry = self.registry.clone();
+
+            let chunk = chunk.value().clone();
+            let neighbors: Vec<Option<Arc<Chunk>>> = self.chunk_neighbors(position).iter().map(|n_ref| n_ref.as_ref().and_then(|inner| Some(Arc::clone(inner)))).collect();
+            let position = position.clone();
+
+            self.threadpool.execute(move ||{
+                let mut mesh = MeshData::new();
+
+                for backface in &[false, true]{
+                    for dim in 0..3{
+                        let u = (dim + 1) % 3;
+                        let v = (dim + 2) % 3;
+                        let mut dir = [0, 0, 0];
+                        dir[dim] = if !*backface {-1} else{1};
+
+                        let mut current = [0isize, 0, 0];
+                        // goes through each 'layer' of blocks in that dim
+                        for layer in 0..CHUNKSIZE as isize{
+                            let mut mask = [[false; CHUNKSIZE]; CHUNKSIZE];
+                            current[dim] = layer; //sets the current layer
+                            for d1 in 0..CHUNKSIZE as isize{
+                                current[v] = d1;
+                                for d2 in 0..CHUNKSIZE as isize{
+                                    current[u] = d2;
+                                    let current_block = chunk.check_block(current[0], current[1], current[2], neighbors.clone());
+
+                                    let (mut w, mut h) = (1, 1);
+                                    // if not masked already, not air and facing air
+                                    if !mask[d1 as usize][d2 as usize] && current_block != 0 && chunk.check_block(current[0]+dir[0], current[1]+dir[1], current[2]+dir[2], neighbors.clone()) == 0{
+                                        mask[d1 as usize][d2 as usize] = true;
+                                        let mut next = current;
+                                        next[u] += 1;
+                                        // if next block is equal current block, start increasing mesh size and not meshed already too...
+                                        if ((d2+1) as usize) < CHUNKSIZE{
+                                            if current_block == chunk.check_block(next[0], next[1], next[2], neighbors.clone()) && !mask[d1 as usize][(d2+1) as usize]{
+                                                w += 1;
+                                                mask[d1 as usize][(d2+1) as usize] = true;
+                                                for i in d2+2..CHUNKSIZE as isize{ // for each remaining block in the current row
+                                                    let mut next2 = next;
+                                                    next2[u] = i;
+                                                    if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) == current_block && !mask[d1 as usize][i as usize]{ w += 1; mask[d1 as usize][i as usize] = true; /*println!("mask: {:?}", mask)*/} else { break }
+                                                }
+                                            }
+                                        }
+
+                                        'row: for j in d1+1..CHUNKSIZE as isize{ // for each row in the remaining rows
+                                            let mut next2 = next;
+                                            next2[v] = j;
+                                            for i in d2..d2+w as isize{ // for each remaining block in the current row
+                                                next2[u] = i;
+                                                if chunk.check_block(next2[0], next2[1], next2[2], neighbors.clone()) != current_block || mask[i as usize][j as usize]{ break 'row }
+                                            }
+                                            for i in d2..d2+w as isize{
+                                                mask[j as usize][i as usize] = true;
+                                            }
+                                            h += 1;
+                                        }
+
+                                        let get_uv = |w, h|{[
+                                            [0.,        0.],
+                                            [w as f32,  0.],
+                                            [0.,        h as f32],
+                                            [w as f32,  h as f32]
+                                        ]};
+
+                                        let (w, h) = (w as f32, h as f32);
+                                        let (ix, uvs) = match dim{
+                                            0 => { // east or west
+                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))}
+                                            },
+                                            1 => { // up or down
+                                                if *backface{([0, 2, 1, 3], get_uv(h, w))} else {([2, 0, 3, 1], get_uv(h, w))} //3, 1, 2, 0
+                                            },
+                                            2 => { //north or south
+                                                if *backface{([1, 0, 3, 2], get_uv(w, h))} else {([0, 1, 2, 3], get_uv(w, h))}
+                                            },
+                                            _ => panic!("Unknown dimension")
+                                        };
+
+                                        let mut x = [current[0] as f32, current[1] as f32, current[2]  as f32];
+                                        if *backface { x[dim] += 1.; }
+                                        let mut du = [0., 0., 0.];
+                                        du[u] = w;
+                                        let mut dv = [0., 0., 0.];
+                                        dv[v] = h;
+
+                                        let block = if let Some(block_data) = registry.block_registry().by_id(current_block as usize) { block_data.get_face(Direction::try_from(u).unwrap_or(Direction::East)) } else{ [0, 1] };
+                                        // let block = if current_block == BlockType::Dirt{
+                                        //     [2, 15]
+                                        // }else if current_block == BlockType::Cobblestone{
+                                        //     [0, 14]
+                                        // }else{
+                                        //     [0, 0]
+                                        // };
+
+                                        let v = [
+                                            x,
+                                            [x[0] + du[0],         x[1] + du[1],         x[2] + du[2]],
+                                            [x[0] + dv[0],         x[1] + dv[1],         x[2] + dv[2]],
+                                            [x[0] + du[0] + dv[0], x[1] + du[1] + dv[1], x[2] + du[2] + dv[2]]
+                                        ];
+
+                                        let vertices = vec![
+                                            Vertex::new(v[ix[0]], uvs[0], block),
+                                            Vertex::new(v[ix[1]], uvs[1], block),
+                                            Vertex::new(v[ix[2]], uvs[2], block),
+                                            Vertex::new(v[ix[3]], uvs[3], block)
+                                        ];
+
+                                        let indices = vec![2, 3, 1, 1, 0, 2];
+                                        mesh.add(vertices, indices);
+                                    }
+
+                                }
+                            }
+
+                        }
+                    }
+                }
+                if mesh.indices.len() != 0 {
+                    // println!("Sending!");
+                    sender.send((position, mesh)).expect("Couldn't send chunk to main thread!");
+                }
+            });
         }
-    }
-
-    pub fn get_chunk(&self, position: ChunkPosition) -> Option<ChunkRef> {
-        self.chunks.get(&position)
-    }
-
-    pub fn dirty_neighbors(&mut self, position: ChunkPosition){
-        self.queue_chunk(ChunkPosition::new(position.x, position.y, position.z + 1)); //north
-        self.queue_chunk(ChunkPosition::new(position.x, position.y, position.z - 1)); //south
-        self.queue_chunk(ChunkPosition::new(position.x + 1, position.y, position.z)); //east
-        self.queue_chunk(ChunkPosition::new(position.x - 1, position.y, position.z)); //west
-        self.queue_chunk(ChunkPosition::new(position.x, position.y + 1, position.z)); //up
-        self.queue_chunk(ChunkPosition::new(position.x, position.y - 1, position.z)); //down
-    }
-
-    pub fn chunk_neighbors(&self, position: ChunkPosition) -> [Option<ChunkRef>; 6] {
-        let north = self.get_chunk(ChunkPosition::new(position.x, position.y, position.z + 1));
-        let south = self.get_chunk(ChunkPosition::new(position.x, position.y, position.z - 1));
-
-        let east = self.get_chunk(ChunkPosition::new(position.x + 1, position.y, position.z));
-        let west = self.get_chunk(ChunkPosition::new(position.x - 1, position.y, position.z));
-
-        let up = self.get_chunk(ChunkPosition::new(position.x, position.y + 1, position.z));
-        let down = self.get_chunk(ChunkPosition::new(position.x, position.y - 1, position.z));
-
-        [north, south, east, west, up, down]
     }
 }

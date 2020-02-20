@@ -20,7 +20,6 @@ impl<'a> System<'a> for MovementSystem{
         (&velocities, &mut positions)
             .par_join()
             .for_each(|(vel, pos)|{
-                use cgmath::{Vector3, Zero};
                 pos.0 += vel.0 * delta.0;
             });
     }
