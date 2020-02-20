@@ -1,5 +1,3 @@
-#![allow(warnings)]
-// #![windows_subsystem = "windows"]
 #[macro_use]
 extern crate glium;
 extern crate cgmath;
