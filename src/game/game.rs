@@ -270,7 +270,6 @@ impl Game{
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
-
         self.context.finish_frame();
     }
 }
