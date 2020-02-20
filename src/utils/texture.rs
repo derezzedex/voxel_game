@@ -91,7 +91,7 @@ impl TextureAtlas{
     pub fn new(display: &glium::Display, path: &Path, tile_size: u32) -> TextureAtlas{
         let data = std::fs::read(path).expect("Couldn't read texture!");
         let bytes = Cursor::new(&data[..]);
-        let image = image::load(bytes, image::PNG).expect("Couldn't load texture!").to_rgba();
+        let image = image::load(bytes, image::ImageFormat::Png).expect("Couldn't load texture!").to_rgba();
         let dimensions = image.dimensions();
         let raw_texture = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), dimensions);
         let texture = glium::texture::Texture2d::new(display, raw_texture).unwrap();

@@ -3,23 +3,18 @@ use crate::utils::texture::TextureStorage;
 use crate::engine::renderer::{Context, DEFAULT_WIDTH, DEFAULT_HEIGHT};
 use crate::utils::timer::*;
 use crate::utils::camera::Camera;
-use crate::engine::mesh::{Mesh, MeshData};
 use crate::game::ecs::ECSManager;
-use crate::utils::raycast::raycast;
-use crate::utils::texture::{TextureAtlas, TextureCoords};
 use crate::game::terrain::manager::TerrainManager;
 
 use crate::game::registry::{Registry, BlockDataBuilder};
 
-use cgmath::{Vector3, Point3, Zero};
-use glium_text_rusttype as glium_text;
+use cgmath::{Vector3, Zero};
 use specs::prelude::*;
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
 
 use std::path::Path;
 use std::time::Instant;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Game{
@@ -44,7 +39,7 @@ impl Game{
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res").join("img").join("texture").join("atlas.png");
-        let texture_storage = TextureStorage::new(context.get_display(), &texture_path, image::PNG, 16);
+        let texture_storage = TextureStorage::new(context.get_display(), &texture_path, image::ImageFormat::Png, 16);
 
         let player_pos = components::Position(camera.get_position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
@@ -56,7 +51,7 @@ impl Game{
         // let perspective = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(40f64)), context.get_aspect_ratio(), 0.1f64, 1024f64);
         // let frustum_culler = FrustumCuller::from_matrix(perspective);
 
-        let mut world = ecs_manager.get_mut_world();
+        let world = ecs_manager.get_mut_world();
         let player = world
                         .create_entity()
                         .with(player_cam)
