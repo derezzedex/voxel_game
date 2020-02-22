@@ -46,10 +46,10 @@ impl Context {
 
         // NORMAL SHADER
         let vertex_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("shaders").join(vert))
+            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(vert))
                 .expect("Something went wrong reading the file");
         let fragment_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("shaders").join(frag))
+            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(frag))
                 .expect("Something went wrong reading the file");
         let shader_program =
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)

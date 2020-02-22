@@ -2,7 +2,7 @@ use std::io::Cursor;
 use std::path::Path;
 use image::GenericImageView;
 
-pub type TextureArray = glium::texture::texture2d_array::Texture2dArray;
+pub type TextureArray = glium::texture::srgb_texture2d_array::SrgbTexture2dArray;
 pub type RawImage<'a, T> = glium::texture::RawImage2d<'a, T>;
 
 #[allow(dead_code)]

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 pub type ChunkPosition = Point3<isize>;
 
-pub const CHUNKSIZE: usize = 32;
+pub const CHUNKSIZE: usize = 16;
 // #[derive(Debug)]
 pub struct Chunk{
     blocks: [[[usize; CHUNKSIZE]; CHUNKSIZE]; CHUNKSIZE],

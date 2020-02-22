@@ -1,7 +1,7 @@
 # Voxel Game
-![status (windows)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/windows/rework?label=windows)
-![status (linux)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/linux/rework?label=linux)
-![status (macos)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/macos/rework?label=macos)
+![status (windows)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/windows?label=windows)
+![status (linux)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/linux?label=linux)
+![status (macos)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/macos?label=macOS)
 [![Generic badge](https://img.shields.io/badge/contribution-welcome-green.svg)](https://shields.io/)  
 ![license](https://img.shields.io/github/license/derezzedex/voxel_game)
 [![lines of code](https://tokei.rs/b1/github/derezzedex/voxel_game)](https://github.com/derezzedex/voxel_game)
@@ -26,6 +26,7 @@ This is a personal side project to learn some concepts about computer graphics, 
        - [ ] Sky [day/night, sun/moon, clouds]
        - [ ] Lighting & Shadows
        - [ ] Post processing
+  - [ ] Filesystem
   - [ ] Camera
        - [x] Free Camera
        - [ ] First Person
