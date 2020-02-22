@@ -4,7 +4,6 @@ use glium::{glutin, Surface};
 use std::fs;
 use std::path::Path;
 
-
 pub const DEFAULT_WIDTH: u32 = 1024;
 pub const DEFAULT_HEIGHT: u32 = 768;
 
@@ -63,6 +62,7 @@ impl Context {
                 write: true,
                 ..Default::default()
             },
+            blend: glium::Blend::alpha_blending(),
             backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             ..Default::default()
         };

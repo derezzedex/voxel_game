@@ -37,7 +37,7 @@ impl Game {
         let timer = UpdateTimer::new(16);
         let running = true;
 
-        let camera = Camera::new([0., (CHUNKSIZE+CHUNKSIZE/2) as f64, 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([0., -16., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res")
@@ -73,7 +73,7 @@ impl Game {
         let mut registry = Registry::new();
         {
             use crate::game::terrain::block::Direction;
-            let air = BlockDataBuilder::default().all_faces([0, 1]).build();
+            let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
             registry.block_registry_mut().add("air", air);
 
             let missing = BlockDataBuilder::default().all_faces([0, 1]).build();
@@ -97,6 +97,13 @@ impl Game {
                 .breakable(false)
                 .build();
             registry.block_registry_mut().add("bedrock", bedrock);
+
+            let glass = BlockDataBuilder::default()
+                .all_faces([0, 14])
+                .breakable(false)
+                .transparent(true)
+                .build();
+            registry.block_registry_mut().add("glass", glass);
         }
         let registry = Arc::new(registry);
         let terrain_manager = TerrainManager::new(&registry);
@@ -146,7 +153,12 @@ impl Game {
             *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
         }
 
+
         self.terrain_manager.setup(self.context.get_display());
+        // {
+        //     let mut terrain = self.ecs_manager.get_mut_world().write_resource::<Terrain>();
+        //     *terrain = Terrain(self.terrain_manager.get_chunks().clone());
+        // }
     }
 
     pub fn update(&mut self) {
@@ -162,6 +174,11 @@ impl Game {
             camera.looking_at = self.camera.get_front();
         }
 
+        // {
+        //     let mut terrain = self.ecs_manager.get_mut_world().write_resource::<Terrain>();
+        //     *terrain = Terrain(self.terrain_manager.get_chunks().clone());
+        // }
+
         self.ecs_manager.run_systems();
 
         // sync player position with camera
@@ -176,9 +193,9 @@ impl Game {
         self.camera.update();
 
         let cam_chunk_pos = ChunkPosition::new(
-            position.0.x.round() as isize / CHUNKSIZE as isize,
-            position.0.y.round() as isize / CHUNKSIZE as isize,
-            position.0.z.round() as isize / CHUNKSIZE as isize,
+            (position.0.x / (CHUNKSIZE - 1) as f64).floor() as isize,
+            (position.0.y / (CHUNKSIZE - 1) as f64).floor() as isize,
+            (position.0.z / (CHUNKSIZE - 1) as f64).floor() as isize,
         );
         self.terrain_manager.update(cam_chunk_pos);
     }

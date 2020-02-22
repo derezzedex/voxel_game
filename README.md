@@ -1,4 +1,4 @@
-# Voxel Game
+## Voxel Game
 ![status (windows)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/windows?label=windows)
 ![status (linux)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/linux?label=linux)
 ![status (macos)](https://img.shields.io/github/workflow/status/derezzedex/voxel_game/macos?label=macOS)
@@ -9,45 +9,57 @@
 
 This is a personal side project to learn some concepts about computer graphics, game development and get more comfortable using Rust.
 
-## Progress
-  - [ ] Player
-       - [x] Movement
-       - [ ] Model
-       - [ ] Health & Other status
-       - [ ] Inventory
+### Features
+This is a list containing all of the planned features and their current state.
+
+#### Technical
   - [ ] Terrain
-       - [x] Chunk
        - [x] Greedy meshing
-       - [x] Block management
        - [ ] Procedural Terrain
        - [ ] Saving/Loading
   - [ ] Rendering
+       - [ ] Transparency [water, glass]
        - [ ] Custom mesh [foliage, etc.]
-       - [ ] Sky [day/night, sun/moon, clouds]
        - [ ] Lighting & Shadows
        - [ ] Post processing
+  - [ ] Physics
+       - [ ] Collision
   - [ ] Filesystem
-  - [ ] Camera
-       - [x] Free Camera
-       - [ ] First Person
-       - [ ] Third Person
   - [ ] Graphical User Interface
        - [ ] Text
+       - [ ] Container
+       - [ ] InputText
+       - [ ] Button
+       - [ ] Slider
+  - [ ] Multiplayer
+  - [ ] Modding
+
+#### Gameplay
+  - [ ] Player
+       - [x] Movement
+       - [ ] Hotbar & inventory
+       - [ ] Model
+       - [ ] Health, hunger & others
+  - [ ] Structures
+  - [ ] Camera
+      - [x] Free Camera
+      - [ ] First Person
+      - [ ] Third Person
   - [ ] Audio
        - [ ] Sound effect
        - [ ] 3D Sound
        - [ ] Background music
   - [ ] Mobs
-       - [ ] Path finding
-  - [ ] Multiplayer
-  - [ ] Modding
+      - [ ] Behaviour tree
+      - [ ] Path finding
+
 
 ## Controls
   - `WASD`  to move around
   - `Space/Shift` to go up/down
 
 ## Screenshots
-  ![screenshot](preview/preview-01.png)
+  ![screenshot](preview/preview-01.png)  
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

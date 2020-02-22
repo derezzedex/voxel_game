@@ -16,6 +16,7 @@ impl ECSManager{
         let mut dispatcher = DispatcherBuilder::new()
             .with(InputSystem, "input", &[])
             .with(MovementSystem, "movement", &["input"])
+            // .with(PhysicsSystem, "physics", &["movement"])
             .build();
 
         dispatcher.setup(&mut world);

@@ -33,8 +33,7 @@ impl ChunkMesher {
     }
 }
 
-pub const LOAD_DISTANCE: usize = 2;
-pub const VIEW_DISTANCE: usize = 1;
+pub const LOAD_DISTANCE: isize = 4;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
@@ -64,7 +63,7 @@ impl TerrainManager {
 
         let noise = Arc::new(Fbm::new().set_seed(10291302));
         let registry = registry.clone();
-        let position = ChunkPosition::new(-10, -10, -10);
+        let position = ChunkPosition::new(0, 0, 0);
 
         let visible_chunks = DashMap::default();
 
@@ -81,35 +80,30 @@ impl TerrainManager {
     }
 
     pub fn setup(&mut self, _display: &glium::Display) {
-        let distance = LOAD_DISTANCE as isize;
-        for z in -distance..distance {
-            for x in -distance..distance {
-                self.generate_chunk(ChunkPosition::new(x, -1, z));
-            }
-        }
+        // for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
+        //     // for y in -1..=LOAD_DISTANCE{
+        //         for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
+        //             self.generate_chunk(ChunkPosition::new(x, -1, z));
+        //         }
+        //     // }
+        // }
+        self.generate_chunk(ChunkPosition::new(0, -1, 0));
     }
 
     pub fn update(&mut self, position: ChunkPosition) {
-        let distance = VIEW_DISTANCE as isize;
-        if position != self.position{
-            println!("Moved from {:?} to {:?}", self.position, position);
-            let mut delta = position - self.position;
-            self.position = position;
-            delta.x = delta.x.abs();
-            delta.z = delta.z.abs();
-            println!("Delta: {:?}", delta);
-            if delta.x > distance || delta.z > distance {
-                // unimplemented!("Too fast");
-            }else{
-                for i in -distance..distance{
-                    if delta.x > delta.z{
-                        self.generate_chunk(ChunkPosition::new(position.x + 1, -1, position.z + i));
-                    }else{
-                        self.generate_chunk(ChunkPosition::new(position.x + i, -1, position.z + 1));
-                    }
-                }
-            }
-        }
+        // if position != self.position{
+        //     self.position = position;
+        //     for z in -LOAD_DISTANCE..=LOAD_DISTANCE{
+        //         // for y in -1..=LOAD_DISTANCE{
+        //             for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
+        //                 let position = ChunkPosition::new(position.x + x, -1, position.z + z);
+        //                 if !self.chunks.contains_key(&position){
+        //                     self.generate_chunk(position);
+        //                 }
+        //             }
+        //         // }
+        //     }
+        // }
     }
 
     pub fn mesh_chunks(&mut self, display: &glium::Display) {
@@ -129,7 +123,7 @@ impl TerrainManager {
         }
     }
 
-    pub fn get_chunks(&self) -> &ChunkMap {
+    pub fn get_chunks(&self) -> &Arc<ChunkMap> {
         &self.chunks
     }
 
@@ -166,36 +160,50 @@ impl TerrainManager {
         let registry = self.registry.clone();
         self.threadpool.execute(move || {
             let mut chunk = Chunk::new(0);
-            for z in 0..CHUNKSIZE {
-                for y in 0..CHUNKSIZE {
-                    for x in 0..CHUNKSIZE {
-                        let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
-                        let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
-                        let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
+            // for z in 0..CHUNKSIZE {
+            //     for y in 0..CHUNKSIZE {
+            //         for x in 0..CHUNKSIZE {
+            //             let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
+            //             let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
+            //             let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
+            //
+            //             let height = range_map(
+            //                 2. * noise.get([nx * 0.01, nz * 0.01]),
+            //                 [-1., 1.],
+            //                 [0., CHUNKSIZE as f64 / 2.],
+            //             )
+            //             .round();
+            //
+            //             if ny == -height {
+            //                 let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
+            //                 chunk.set_block(x, y, z, block);
+            //             } else if ny == -(CHUNKSIZE as f64) {
+            //                 let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
+            //                 chunk.set_block(x, y, z, block);
+            //             } else if ny < -height - 3. {
+            //                 let block = registry.block_registry().id_of("stone").unwrap_or(1);
+            //                 chunk.set_block(x, y, z, block);
+            //             } else if ny < -height {
+            //                 let block = registry.block_registry().id_of("dirt").unwrap_or(1);
+            //                 chunk.set_block(x, y, z, block);
+            //             }
+            //         }
+            //     }
+            // }
 
-                        let height = range_map(
-                            2. * noise.get([nx * 0.01, nz * 0.01]),
-                            [-1., 1.],
-                            [0., CHUNKSIZE as f64 / 2.],
-                        )
-                        .round();
+            let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
+            let glass = registry.block_registry().id_of("glass").unwrap_or(1);
 
-                        if ny == -height {
-                            let block = registry.block_registry().id_of("grass").unwrap_or(1);
-                            chunk.set_block(x, y, z, block);
-                        } else if ny == -(CHUNKSIZE as f64) {
-                            let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
-                            chunk.set_block(x, y, z, block);
-                        } else if ny < -height - 3. {
-                            let block = registry.block_registry().id_of("stone").unwrap_or(1);
-                            chunk.set_block(x, y, z, block);
-                        } else if ny < -height {
-                            let block = registry.block_registry().id_of("dirt").unwrap_or(1);
-                            chunk.set_block(x, y, z, block);
-                        }
-                    }
-                }
-            }
+            chunk.set_block(1, 2, 1, glass);
+            chunk.set_block(1, 0, 1, glass);
+
+            chunk.set_block(1, 1, 1, dirt);
+
+            chunk.set_block(0, 1, 1, glass);
+            chunk.set_block(2, 1, 1, glass);
+
+            chunk.set_block(1, 1, 0, glass);
+            chunk.set_block(1, 1, 2, glass);
 
             chunks.insert(position, Arc::new(chunk));
         });
@@ -241,15 +249,15 @@ impl TerrainManager {
                                     );
 
                                     let (mut w, mut h) = (1, 1);
-                                    // if not masked already, not air and facing air
+                                    // if not masked already, not air and facing transparent
                                     if !mask[d1 as usize][d2 as usize]
                                         && current_block != 0
-                                        && chunk.check_block(
+                                        && registry.block_registry().by_id(chunk.check_block(
                                             current[0] + dir[0],
                                             current[1] + dir[1],
                                             current[2] + dir[2],
                                             neighbors.clone(),
-                                        ) == 0
+                                        )).unwrap().is_transparent()
                                     {
                                         mask[d1 as usize][d2 as usize] = true;
                                         let mut next = current;
@@ -264,6 +272,12 @@ impl TerrainManager {
                                                     neighbors.clone(),
                                                 )
                                                 && !mask[d1 as usize][(d2 + 1) as usize]
+                                                // && registry.block_registry().by_id(chunk.check_block(
+                                                //     next[0] + dir[0],
+                                                //     next[1] + dir[1],
+                                                //     next[2] + dir[2],
+                                                //     neighbors.clone(),
+                                                // )).unwrap().is_transparent()
                                             {
                                                 w += 1;
                                                 mask[d1 as usize][(d2 + 1) as usize] = true;
@@ -278,6 +292,12 @@ impl TerrainManager {
                                                         neighbors.clone(),
                                                     ) == current_block
                                                         && !mask[d1 as usize][i as usize]
+                                                        // && registry.block_registry().by_id(chunk.check_block(
+                                                        //     next2[0] + dir[0],
+                                                        //     next2[1] + dir[1],
+                                                        //     next2[2] + dir[2],
+                                                        //     neighbors.clone(),
+                                                        // )).unwrap().is_transparent()
                                                     {
                                                         w += 1;
                                                         mask[d1 as usize][i as usize] = true;
@@ -303,6 +323,12 @@ impl TerrainManager {
                                                     neighbors.clone(),
                                                 ) != current_block
                                                     || mask[i as usize][j as usize]
+                                                    // || registry.block_registry().by_id(chunk.check_block(
+                                                    //     next2[0] + dir[0],
+                                                    //     next2[1] + dir[1],
+                                                    //     next2[2] + dir[2],
+                                                    //     neighbors.clone(),
+                                                    // )).unwrap().is_transparent()
                                                 {
                                                     break 'row;
                                                 }
