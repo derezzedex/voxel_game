@@ -55,15 +55,13 @@ impl Context {
                 .unwrap();
 
         let render_params = glium::DrawParameters {
-            // polygon_mode: glium::draw_parameters::PolygonMode::Line,
-            // line_width: Some(10f32),
             depth: glium::Depth {
                 test: glium::DepthTest::IfLess,
                 write: true,
                 ..Default::default()
             },
             blend: glium::Blend::alpha_blending(),
-            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
             ..Default::default()
         };
 

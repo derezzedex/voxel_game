@@ -1,3 +1,4 @@
+use cgmath::Vector3;
 use num_enum::TryFromPrimitive;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
@@ -9,6 +10,19 @@ pub enum Direction{
     Bottom = 3,
     North = 4,
     South = 5
+}
+
+impl Direction{
+    pub fn normal(&self) -> Vector3<isize> {
+        match self{
+            Direction::East => Vector3::new(1, 0, 0),
+            Direction::West => Vector3::new(-1, 0, 0),
+            Direction::Top => Vector3::new(0, 1, 0),
+            Direction::Bottom => Vector3::new(0, -1, 0),
+            Direction::North => Vector3::new(0, 0, 1),
+            Direction::South => Vector3::new(0, 0, -1),
+        }
+    }
 }
 
 #[allow(dead_code)]

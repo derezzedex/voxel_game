@@ -1,13 +1,11 @@
 use crate::engine::renderer::Context;
 use crate::game::ecs::ECSManager;
-use crate::game::terrain::chunk::ChunkPosition;
-use crate::game::terrain::chunk::CHUNKSIZE;
+use crate::game::registry::Registry;
+use crate::game::terrain::chunk::{ChunkPosition, CHUNKSIZE};
 use crate::game::terrain::manager::TerrainManager;
-use crate::utils::camera::Camera;
-use crate::utils::texture::TextureStorage;
-use crate::utils::timer::*;
-
-use crate::game::registry::{BlockDataBuilder, Registry};
+use crate::engine::utils::camera::Camera;
+use crate::engine::utils::texture::TextureStorage;
+use crate::engine::utils::clock::*;
 
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
@@ -27,17 +25,17 @@ pub struct Game {
     texture_storage: TextureStorage,
     player: Entity,
     camera: Camera,
-    timer: UpdateTimer,
+    timer: Clock,
     running: bool,
 }
 
 impl Game {
     pub fn new(title: &str) -> Self {
         let context = Context::new(title, "vertex.glsl", "fragment.glsl");
-        let timer = UpdateTimer::new(16);
+        let timer = Clock::new(16);
         let running = true;
 
-        let camera = Camera::new([0., -16., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([0., 0., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
         let texture_path = Path::new("res")
@@ -71,40 +69,7 @@ impl Game {
             .build();
 
         let mut registry = Registry::new();
-        {
-            use crate::game::terrain::block::Direction;
-            let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
-            registry.block_registry_mut().add("air", air);
-
-            let missing = BlockDataBuilder::default().all_faces([0, 1]).build();
-            registry.block_registry_mut().add("missing", missing);
-
-            let grass = BlockDataBuilder::default()
-                .all_faces([3, 15])
-                .face(Direction::Top, [0, 15])
-                .face(Direction::Bottom, [2, 15])
-                .build();
-            registry.block_registry_mut().add("grass", grass);
-
-            let dirt = BlockDataBuilder::default().all_faces([2, 15]).build();
-            registry.block_registry_mut().add("dirt", dirt);
-
-            let stone = BlockDataBuilder::default().all_faces([1, 15]).build();
-            registry.block_registry_mut().add("stone", stone);
-
-            let bedrock = BlockDataBuilder::default()
-                .all_faces([1, 14])
-                .breakable(false)
-                .build();
-            registry.block_registry_mut().add("bedrock", bedrock);
-
-            let glass = BlockDataBuilder::default()
-                .all_faces([0, 14])
-                .breakable(false)
-                .transparent(true)
-                .build();
-            registry.block_registry_mut().add("glass", glass);
-        }
+        registry.setup();
         let registry = Arc::new(registry);
         let terrain_manager = TerrainManager::new(&registry);
 
@@ -173,7 +138,7 @@ impl Game {
 
             camera.looking_at = self.camera.get_front();
         }
-
+        //
         // {
         //     let mut terrain = self.ecs_manager.get_mut_world().write_resource::<Terrain>();
         //     *terrain = Terrain(self.terrain_manager.get_chunks().clone());
@@ -183,9 +148,7 @@ impl Game {
 
         // sync player position with camera
         let position_storage = self
-            .ecs_manager
-            .get_mut_world()
-            .read_storage::<components::Position>();
+            .ecs_manager.read_storage::<components::Position>();
         let position = position_storage
             .get(self.player)
             .expect("Failed to get Player Position");
@@ -208,7 +171,7 @@ impl Game {
                     glium::glutin::DeviceEvent::MouseMotion { delta } => {
                         self.camera.handle_mouse(delta.0, delta.1);
                         self.context.reset_mouse_position();
-                    }
+                    },
                     _ => (),
                 },
                 glium::glutin::Event::WindowEvent { event, .. } => match event {
@@ -231,54 +194,42 @@ impl Game {
                                         self.running = false;
                                     }
                                     glium::glutin::VirtualKeyCode::W => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.forward = pressed;
                                     }
                                     glium::glutin::VirtualKeyCode::S => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.backward = pressed;
                                     }
                                     glium::glutin::VirtualKeyCode::A => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.left = pressed;
                                     }
                                     glium::glutin::VirtualKeyCode::D => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.right = pressed;
                                     }
                                     glium::glutin::VirtualKeyCode::Space => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.up = pressed;
                                     }
                                     glium::glutin::VirtualKeyCode::LShift => {
-                                        let world = self.ecs_manager.get_mut_world();
-                                        let mut controller_storage =
-                                            world.write_storage::<components::Controller>();
+                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
@@ -324,7 +275,7 @@ impl Game {
             .into();
 
         self.terrain_manager.mesh_chunks(self.context.get_display());
-        for mesh_ref in self.terrain_manager.get_meshes().iter() {
+        for mesh_ref in self.terrain_manager.get_meshes().iter(){
             let (position, mesh) = mesh_ref.pair();
             let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
                 Vector3::new(position.x as f32, position.y as f32, position.z as f32)

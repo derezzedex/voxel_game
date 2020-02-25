@@ -6,11 +6,10 @@ extern crate rayon;
 
 mod engine;
 mod game;
-mod utils;
 
 use crate::game::game::Game;
 
 fn main() {
-    let mut game = Game::new("Cave game v0.1.0");
+    let mut game = Game::new("Voxel Game");
     game.run();
 }

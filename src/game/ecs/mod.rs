@@ -42,9 +42,12 @@ impl ECSManager{
     pub fn maintain_world(&mut self){
         self.world.maintain();
     }
-
-    #[allow(dead_code)]
+    
     pub fn read_storage<T: specs::Component>(&self) -> ReadStorage<T>{
         self.world.read_storage::<T>()
+    }
+
+    pub fn write_storage<T: specs::Component>(&self) -> WriteStorage<T>{
+        self.world.write_storage::<T>()
     }
 }

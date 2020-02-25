@@ -1,39 +1,28 @@
 use super::chunk::CHUNKSIZE;
 use super::chunk::{Chunk, ChunkPosition};
+use super::block::Direction;
 use crate::engine::mesh::{Mesh, MeshData};
-use crate::engine::Vertex;
 use crate::game::registry::Registry;
-use crate::game::terrain::block::Direction;
+use crate::game::terrain::chunk::FromWorld;
+use crate::engine::Vertex;
+use super::mesher::*;
 
-use cgmath::Point3;
+use cgmath::{Point3, Vector3};
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
-use noise::{Fbm, NoiseFn, Seedable};
-use std::convert::TryFrom;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 use uvth::{ThreadPool, ThreadPoolBuilder};
+use noise::{Fbm, NoiseFn, Seedable};
+
+use std::sync::Arc;
+use std::convert::TryFrom;
 
 pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
     b[0] + ((s - a[0]) * (b[1] - b[0])) / (a[1] - a[0])
 }
 
-pub type MeshMessage = (ChunkPosition, MeshData);
-pub struct ChunkMesher {
-    sender: Sender<MeshMessage>,
-    receiver: Receiver<MeshMessage>,
-}
-
-impl ChunkMesher {
-    pub fn new() -> Self {
-        let (sender, receiver) = mpsc::channel();
-
-        Self { sender, receiver }
-    }
-}
 
 pub const LOAD_DISTANCE: isize = 4;
+pub const HALF: f32 = 0.5;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
@@ -57,13 +46,14 @@ impl TerrainManager {
         let meshes = ChunkMeshMap::default();
 
         let threadpool = ThreadPoolBuilder::new()
+        .num_threads(1)
             .name("TerrainManager".to_string())
             .build();
         let mesher = ChunkMesher::new();
 
         let noise = Arc::new(Fbm::new().set_seed(10291302));
         let registry = registry.clone();
-        let position = ChunkPosition::new(0, 0, 0);
+        let position = ChunkPosition::new(0, 1, 0);
 
         let visible_chunks = DashMap::default();
 
@@ -80,46 +70,57 @@ impl TerrainManager {
     }
 
     pub fn setup(&mut self, _display: &glium::Display) {
-        // for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
-        //     // for y in -1..=LOAD_DISTANCE{
-        //         for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
-        //             self.generate_chunk(ChunkPosition::new(x, -1, z));
-        //         }
-        //     // }
-        // }
-        self.generate_chunk(ChunkPosition::new(0, -1, 0));
+        for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
+            for y in -1..=0{
+                for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
+                    self.generate_chunk(ChunkPosition::new(x, y, z));
+                }
+            }
+        }
+        // self.generate_chunk(ChunkPosition::new(0, -1, 0));
     }
 
     pub fn update(&mut self, position: ChunkPosition) {
-        // if position != self.position{
-        //     self.position = position;
-        //     for z in -LOAD_DISTANCE..=LOAD_DISTANCE{
-        //         // for y in -1..=LOAD_DISTANCE{
-        //             for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
-        //                 let position = ChunkPosition::new(position.x + x, -1, position.z + z);
-        //                 if !self.chunks.contains_key(&position){
-        //                     self.generate_chunk(position);
-        //                 }
-        //             }
-        //         // }
-        //     }
-        // }
+        if position != self.position{
+            self.position = position;
+            for z in -LOAD_DISTANCE..=LOAD_DISTANCE{
+                for y in -1..=0{
+                    for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
+                        let position = ChunkPosition::new(position.x + x, y, position.z + z);
+                        if !self.chunks.contains_key(&position){
+                            self.generate_chunk(position);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn dirty_chunk(&mut self, position: ChunkPosition){
+        self.meshes.remove(&position);
+        self.visible_chunks.remove(&position);
     }
 
     pub fn mesh_chunks(&mut self, display: &glium::Display) {
         //temp
         for c_ref in self.chunks.clone().iter(){
             let position = c_ref.key();
-            if !self.meshes.contains_key(position) && !self.visible_chunks.contains_key(position){
-                self.send_to_mesh(position);
-                self.visible_chunks.insert(*position, ());
+            if (position.x >= self.position.x - LOAD_DISTANCE && position.x <= self.position.x + LOAD_DISTANCE)
+            && (position.z >= self.position.z - LOAD_DISTANCE && position.z <= self.position.z + LOAD_DISTANCE){
+                if !self.meshes.contains_key(position) && !self.visible_chunks.contains_key(position){
+                    self.send_to_mesh(position);
+                    self.visible_chunks.insert(*position, ());
+                }
+            }else{
+                self.meshes.remove(position);
+                self.visible_chunks.remove(position);
+                // self.chunks.remove(position);
             }
         }
 
-        let received: Vec<_> = self.mesher.receiver.try_iter().collect();
-        for (position, data) in &received {
+        if let Ok((position, data)) = self.mesher.receive(){
             let mesh = data.build(display);
-            self.meshes.insert(*position, mesh);
+            self.meshes.insert(position, mesh);
         }
     }
 
@@ -129,6 +130,16 @@ impl TerrainManager {
 
     pub fn get_meshes(&self) -> &ChunkMeshMap {
         &self.meshes
+    }
+
+    pub fn block_at(&self, x: f64, y: f64, z: f64) -> Option<usize>{
+        let chunk_pos = ChunkPosition::from_world(x, y, z);
+        if let Some(chunk_ref) = self.chunks.get(&chunk_pos){
+            let b_pos = [x % CHUNKSIZE as f64, y % CHUNKSIZE as f64, z % CHUNKSIZE as f64];
+            return Some(chunk_ref.value().get_block(b_pos[0].abs() as usize, b_pos[1].abs() as usize, b_pos[2].abs() as usize));
+        }
+
+        None
     }
 
     fn chunk_neighbors(&self, position: &ChunkPosition) -> [Option<ChunkRef>; 6] {
@@ -160,50 +171,37 @@ impl TerrainManager {
         let registry = self.registry.clone();
         self.threadpool.execute(move || {
             let mut chunk = Chunk::new(0);
-            // for z in 0..CHUNKSIZE {
-            //     for y in 0..CHUNKSIZE {
-            //         for x in 0..CHUNKSIZE {
-            //             let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
-            //             let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
-            //             let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
-            //
-            //             let height = range_map(
-            //                 2. * noise.get([nx * 0.01, nz * 0.01]),
-            //                 [-1., 1.],
-            //                 [0., CHUNKSIZE as f64 / 2.],
-            //             )
-            //             .round();
-            //
-            //             if ny == -height {
-            //                 let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
-            //                 chunk.set_block(x, y, z, block);
-            //             } else if ny == -(CHUNKSIZE as f64) {
-            //                 let block = registry.block_registry().id_of("bedrock").unwrap_or(1);
-            //                 chunk.set_block(x, y, z, block);
-            //             } else if ny < -height - 3. {
-            //                 let block = registry.block_registry().id_of("stone").unwrap_or(1);
-            //                 chunk.set_block(x, y, z, block);
-            //             } else if ny < -height {
-            //                 let block = registry.block_registry().id_of("dirt").unwrap_or(1);
-            //                 chunk.set_block(x, y, z, block);
-            //             }
-            //         }
-            //     }
-            // }
-
+            let grass = registry.block_registry().id_of("grass").unwrap_or(1);
             let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
-            let glass = registry.block_registry().id_of("glass").unwrap_or(1);
+            let stone = registry.block_registry().id_of("stone").unwrap_or(1);
+            let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
 
-            chunk.set_block(1, 2, 1, glass);
-            chunk.set_block(1, 0, 1, glass);
+            for z in 0..CHUNKSIZE {
+                for y in 0..CHUNKSIZE {
+                    for x in 0..CHUNKSIZE {
+                        let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
+                        let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
+                        let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
 
-            chunk.set_block(1, 1, 1, dirt);
+                        let height = range_map(
+                            2. * noise.get([nx * 0.01, nz * 0.01]),
+                            [-1., 1.],
+                            [0., CHUNKSIZE as f64 / 2.],
+                        )
+                        .round();
 
-            chunk.set_block(0, 1, 1, glass);
-            chunk.set_block(2, 1, 1, glass);
-
-            chunk.set_block(1, 1, 0, glass);
-            chunk.set_block(1, 1, 2, glass);
+                        if ny == -height {
+                            chunk.set_block(x, y, z, grass);
+                        } else if ny == -(CHUNKSIZE as f64) {
+                            chunk.set_block(x, y, z, bedrock);
+                        } else if ny < -height - 3. {
+                            chunk.set_block(x, y, z, stone);
+                        } else if ny < -height {
+                            chunk.set_block(x, y, z, dirt);
+                        }
+                    }
+                }
+            }
 
             chunks.insert(position, Arc::new(chunk));
         });
@@ -211,7 +209,7 @@ impl TerrainManager {
 
     fn send_to_mesh(&mut self, position: &ChunkPosition) {
         if let Some(chunk) = self.chunks.get(position) {
-            let sender = self.mesher.sender.clone();
+            let sender = self.mesher.sender();
             let registry = self.registry.clone();
 
             let chunk = chunk.value().clone();
@@ -224,210 +222,63 @@ impl TerrainManager {
 
             self.threadpool.execute(move || {
                 let mut mesh = MeshData::new();
+                let air = registry.block_registry().id_of("air").expect("Air missing in Registry!");
 
-                for backface in &[false, true] {
-                    for dim in 0..3 {
-                        let u = (dim + 1) % 3;
-                        let v = (dim + 2) % 3;
-                        let mut dir = [0, 0, 0];
-                        dir[dim] = if !*backface { -1 } else { 1 };
-
-                        let mut current = [0isize, 0, 0];
-                        // goes through each 'layer' of blocks in that dim
-                        for layer in 0..CHUNKSIZE as isize {
-                            let mut mask = [[false; CHUNKSIZE]; CHUNKSIZE];
-                            current[dim] = layer; //sets the current layer
-                            for d1 in 0..CHUNKSIZE as isize {
-                                current[v] = d1;
-                                for d2 in 0..CHUNKSIZE as isize {
-                                    current[u] = d2;
-                                    let current_block = chunk.check_block(
-                                        current[0],
-                                        current[1],
-                                        current[2],
-                                        neighbors.clone(),
-                                    );
-
-                                    let (mut w, mut h) = (1, 1);
-                                    // if not masked already, not air and facing transparent
-                                    if !mask[d1 as usize][d2 as usize]
-                                        && current_block != 0
-                                        && registry.block_registry().by_id(chunk.check_block(
-                                            current[0] + dir[0],
-                                            current[1] + dir[1],
-                                            current[2] + dir[2],
-                                            neighbors.clone(),
-                                        )).unwrap().is_transparent()
-                                    {
-                                        mask[d1 as usize][d2 as usize] = true;
-                                        let mut next = current;
-                                        next[u] += 1;
-                                        // if next block is equal current block, start increasing mesh size and not meshed already too...
-                                        if ((d2 + 1) as usize) < CHUNKSIZE {
-                                            if current_block
-                                                == chunk.check_block(
-                                                    next[0],
-                                                    next[1],
-                                                    next[2],
-                                                    neighbors.clone(),
-                                                )
-                                                && !mask[d1 as usize][(d2 + 1) as usize]
-                                                // && registry.block_registry().by_id(chunk.check_block(
-                                                //     next[0] + dir[0],
-                                                //     next[1] + dir[1],
-                                                //     next[2] + dir[2],
-                                                //     neighbors.clone(),
-                                                // )).unwrap().is_transparent()
-                                            {
-                                                w += 1;
-                                                mask[d1 as usize][(d2 + 1) as usize] = true;
-                                                for i in d2 + 2..CHUNKSIZE as isize {
-                                                    // for each remaining block in the current row
-                                                    let mut next2 = next;
-                                                    next2[u] = i;
-                                                    if chunk.check_block(
-                                                        next2[0],
-                                                        next2[1],
-                                                        next2[2],
-                                                        neighbors.clone(),
-                                                    ) == current_block
-                                                        && !mask[d1 as usize][i as usize]
-                                                        // && registry.block_registry().by_id(chunk.check_block(
-                                                        //     next2[0] + dir[0],
-                                                        //     next2[1] + dir[1],
-                                                        //     next2[2] + dir[2],
-                                                        //     neighbors.clone(),
-                                                        // )).unwrap().is_transparent()
-                                                    {
-                                                        w += 1;
-                                                        mask[d1 as usize][i as usize] = true;
-                                                    /*println!("mask: {:?}", mask)*/
-                                                    } else {
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        'row: for j in d1 + 1..CHUNKSIZE as isize {
-                                            // for each row in the remaining rows
-                                            let mut next2 = next;
-                                            next2[v] = j;
-                                            for i in d2..d2 + w as isize {
-                                                // for each remaining block in the current row
-                                                next2[u] = i;
-                                                if chunk.check_block(
-                                                    next2[0],
-                                                    next2[1],
-                                                    next2[2],
-                                                    neighbors.clone(),
-                                                ) != current_block
-                                                    || mask[i as usize][j as usize]
-                                                    // || registry.block_registry().by_id(chunk.check_block(
-                                                    //     next2[0] + dir[0],
-                                                    //     next2[1] + dir[1],
-                                                    //     next2[2] + dir[2],
-                                                    //     neighbors.clone(),
-                                                    // )).unwrap().is_transparent()
-                                                {
-                                                    break 'row;
-                                                }
-                                            }
-                                            for i in d2..d2 + w as isize {
-                                                mask[j as usize][i as usize] = true;
-                                            }
-                                            h += 1;
-                                        }
-
-                                        let get_uv = |w, h| {
-                                            [
-                                                [0., 0.],
-                                                [w as f32, 0.],
-                                                [0., h as f32],
-                                                [w as f32, h as f32],
-                                            ]
-                                        };
-
-                                        let (w, h) = (w as f32, h as f32);
-                                        let (ix, uvs) = match dim {
-                                            0 => {
-                                                // east or west
-                                                if *backface {
-                                                    ([0, 2, 1, 3], get_uv(h, w))
-                                                } else {
-                                                    ([2, 0, 3, 1], get_uv(h, w))
-                                                }
-                                            }
-                                            1 => {
-                                                // up or down
-                                                if *backface {
-                                                    ([0, 2, 1, 3], get_uv(h, w))
-                                                } else {
-                                                    ([2, 0, 3, 1], get_uv(h, w))
-                                                } //3, 1, 2, 0
-                                            }
-                                            2 => {
-                                                //north or south
-                                                if *backface {
-                                                    ([1, 0, 3, 2], get_uv(w, h))
-                                                } else {
-                                                    ([0, 1, 2, 3], get_uv(w, h))
-                                                }
-                                            }
-                                            _ => panic!("Unknown dimension"),
-                                        };
-
-                                        let mut x = [
-                                            current[0] as f32,
-                                            current[1] as f32,
-                                            current[2] as f32,
-                                        ];
-                                        if *backface {
-                                            x[dim] += 1.;
-                                        }
-                                        let mut du = [0., 0., 0.];
-                                        du[u] = w;
-                                        let mut dv = [0., 0., 0.];
-                                        dv[v] = h;
-
-                                        let block = if let Some(block_data) =
-                                            registry.block_registry().by_id(current_block as usize)
-                                        {
-                                            block_data.get_face(
-                                                Direction::try_from(u).unwrap_or(Direction::East),
-                                            )
-                                        } else {
-                                            [0, 1]
-                                        };
-                                        // let block = if current_block == BlockType::Dirt{
-                                        //     [2, 15]
-                                        // }else if current_block == BlockType::Cobblestone{
-                                        //     [0, 14]
-                                        // }else{
-                                        //     [0, 0]
-                                        // };
-
-                                        let v = [
-                                            x,
-                                            [x[0] + du[0], x[1] + du[1], x[2] + du[2]],
-                                            [x[0] + dv[0], x[1] + dv[1], x[2] + dv[2]],
-                                            [
-                                                x[0] + du[0] + dv[0],
-                                                x[1] + du[1] + dv[1],
-                                                x[2] + du[2] + dv[2],
+                for x in 0..CHUNKSIZE{
+                    for y in 0..CHUNKSIZE{
+                        for z in 0..CHUNKSIZE{
+                            let block = chunk.get_block(x, y, z);
+                            
+                            if block != air{
+                                for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
+                                    let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
+                                    let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
+                                    let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
+                                    if facing_data.is_transparent(){
+                                        let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
+                                        let (x, y, z) = (x as f32, y as f32, z as f32);
+                                        let vertices = match direction{
+                                            Direction::North => vec![
+                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [0., 0.], block),
+                                                Vertex::new([x+HALF, y+(-HALF), z+HALF], [1., 0.], block),
+                                                Vertex::new([x+(-HALF), y+HALF, z+HALF],  [0., 1.], block),
+                                                Vertex::new([x+HALF, y+HALF, z+HALF],  [1., 1.], block)
                                             ],
-                                        ];
-
-                                        let vertices = vec![
-                                            Vertex::new(v[ix[0]], uvs[0], block),
-                                            Vertex::new(v[ix[1]], uvs[1], block),
-                                            Vertex::new(v[ix[2]], uvs[2], block),
-                                            Vertex::new(v[ix[3]], uvs[3], block),
-                                        ];
-
+                                            Direction::South => vec![
+                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [0., 0.], block),
+                                                Vertex::new([x+(-HALF), y+(-HALF), z+(-HALF)], [1., 0.], block),
+                                                Vertex::new([x+HALF, y+HALF, z+(-HALF)],  [0., 1.], block),
+                                                Vertex::new([x+(-HALF), y+HALF, z+(-HALF)],  [1., 1.], block)
+                                            ],
+                                            Direction::West => vec![
+                                                Vertex::new([x+(-HALF), y+(-HALF),z+(-HALF)], [0., 0.], block),
+                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [1., 0.], block),
+                                                Vertex::new([x+(-HALF),y+HALF, z+(-HALF)], [0., 1.], block),
+                                                Vertex::new([x+(-HALF), y+HALF,  z+HALF], [1., 1.], block)
+                                            ],
+                                            Direction::East => vec![
+                                                Vertex::new([x+HALF, y+(-HALF),  z+HALF], [0., 0.], block),
+                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [1., 0.], block),
+                                                Vertex::new([x+HALF,  y+HALF,  z+HALF], [0., 1.], block),
+                                                Vertex::new([x+HALF,  y+HALF, z+(-HALF)], [1., 1.], block)
+                                            ],
+                                            Direction::Top => vec![
+                                                Vertex::new([x+(-HALF), y+HALF, z+HALF], [0., 0.], block),
+                                                Vertex::new([x+HALF, y+HALF, z+HALF], [1., 0.], block),
+                                                Vertex::new([x+(-HALF), y+HALF, z+(-HALF)], [0., 1.], block),
+                                                Vertex::new([x+HALF, y+HALF, z+(-HALF)], [1., 1.], block)
+                                            ],
+                                            Direction::Bottom => vec![
+                                                Vertex::new([x+(-HALF), y+(-HALF), z+(-HALF)], [0., 0.], block),
+                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [1., 0.], block),
+                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [0., 1.], block),
+                                                Vertex::new([x+HALF, y+(-HALF), z+HALF], [1., 1.], block)
+                                            ],
+                                        };
                                         let indices = vec![2, 3, 1, 1, 0, 2];
                                         mesh.add(vertices, indices);
                                     }
+
                                 }
                             }
                         }

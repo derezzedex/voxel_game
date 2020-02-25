@@ -13,7 +13,7 @@ impl FromWorld for ChunkPosition{
 }
 
 pub const CHUNKSIZE: usize = 16;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chunk{
     blocks: [[[usize; CHUNKSIZE]; CHUNKSIZE]; CHUNKSIZE],
 }

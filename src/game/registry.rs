@@ -105,22 +105,52 @@ impl BlockRegistry{
 }
 
 pub struct Registry{
-    block: BlockRegistry,
+    blocks: BlockRegistry,
 }
 
 impl Registry{
     pub fn new() -> Self{
-        let block = BlockRegistry::new();
+        let blocks = BlockRegistry::new();
         Self{
-            block
+            blocks
         }
     }
 
-    pub fn block_registry_mut(&mut self) -> &mut BlockRegistry{
-        &mut self.block
+    pub fn setup(&mut self){
+        let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
+        self.blocks.add("air", air);
+
+        let missing = BlockDataBuilder::default().all_faces([0, 1]).build();
+        self.blocks.add("missing", missing);
+
+        let grass = BlockDataBuilder::default()
+            .all_faces([3, 15])
+            .face(Direction::Top, [0, 15])
+            .face(Direction::Bottom, [2, 15])
+            .build();
+        self.blocks.add("grass", grass);
+
+        let dirt = BlockDataBuilder::default().all_faces([2, 15]).build();
+        self.blocks.add("dirt", dirt);
+
+        let stone = BlockDataBuilder::default().all_faces([1, 15]).build();
+        self.blocks.add("stone", stone);
+
+        let bedrock = BlockDataBuilder::default()
+            .all_faces([1, 14])
+            .breakable(false)
+            .build();
+        self.blocks.add("bedrock", bedrock);
+
+        let glass = BlockDataBuilder::default()
+            .all_faces([0, 14])
+            .breakable(false)
+            .transparent(true)
+            .build();
+        self.blocks.add("glass", glass);
     }
 
     pub fn block_registry(&self) -> &BlockRegistry{
-        &self.block
+        &self.blocks
     }
 }
