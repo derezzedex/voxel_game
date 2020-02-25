@@ -56,9 +56,6 @@ impl Game {
         };
         let player_controller = components::Controller::new();
 
-        // let perspective = cgmath::perspective(cgmath::Rad::from(cgmath::Deg(40f64)), context.get_aspect_ratio(), 0.1f64, 1024f64);
-        // let frustum_culler = FrustumCuller::from_matrix(perspective);
-
         let world = ecs_manager.get_mut_world();
         let player = world
             .create_entity()
@@ -120,10 +117,6 @@ impl Game {
 
 
         self.terrain_manager.setup(self.context.get_display());
-        // {
-        //     let mut terrain = self.ecs_manager.get_mut_world().write_resource::<Terrain>();
-        //     *terrain = Terrain(self.terrain_manager.get_chunks().clone());
-        // }
     }
 
     pub fn update(&mut self) {
@@ -138,11 +131,6 @@ impl Game {
 
             camera.looking_at = self.camera.get_front();
         }
-        //
-        // {
-        //     let mut terrain = self.ecs_manager.get_mut_world().write_resource::<Terrain>();
-        //     *terrain = Terrain(self.terrain_manager.get_chunks().clone());
-        // }
 
         self.ecs_manager.run_systems();
 
@@ -187,7 +175,6 @@ impl Game {
                                     glium::glutin::VirtualKeyCode::P => {
                                         if pressed {
                                             self.context.grab_mouse();
-                                            // self.context.reset_mouse_position();
                                         }
                                     }
                                     glium::glutin::VirtualKeyCode::Escape => {
@@ -251,6 +238,7 @@ impl Game {
     pub fn render(&mut self, _timer: Instant) {
         self.context.new_frame();
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
+        // self.context.clear_color([0.5, 0.5, 0.5, 1.0]);
 
         let texture = self
             .texture_storage

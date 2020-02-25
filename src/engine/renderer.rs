@@ -27,14 +27,12 @@ impl Context {
             .with_title(title)
             .with_dimensions(window_dimensions.into());
         let cb = glutin::ContextBuilder::new()
-            // .with_srgb(true)
+            .with_srgb(true)
             .with_depth_buffer(24)
             .with_multisampling(4)
             .with_vsync(true);
         let display =
             glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
-
-        // let gui = GUIManager::new(&display);
 
         display
             .gl_window()
@@ -43,7 +41,6 @@ impl Context {
 
         let cargo_dir = env!("CARGO_MANIFEST_DIR");
 
-        // NORMAL SHADER
         let vertex_shader_src =
             fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(vert))
                 .expect("Something went wrong reading the file");
@@ -73,7 +70,6 @@ impl Context {
         Self {
             events_loop,
             display,
-            // gui,
             window_dimensions,
             mouse_grab,
             render_params,

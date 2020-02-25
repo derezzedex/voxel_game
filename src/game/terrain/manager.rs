@@ -21,7 +21,7 @@ pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
 }
 
 
-pub const LOAD_DISTANCE: isize = 4;
+pub const LOAD_DISTANCE: isize = 6;
 pub const HALF: f32 = 0.5;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
@@ -228,7 +228,7 @@ impl TerrainManager {
                     for y in 0..CHUNKSIZE{
                         for z in 0..CHUNKSIZE{
                             let block = chunk.get_block(x, y, z);
-                            
+
                             if block != air{
                                 for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
                                     let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();

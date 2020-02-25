@@ -16,8 +16,11 @@ impl Component for Position{
 }
 
 // ============ BOUNDINGBOX ============
-/// [0]: TopLeft [1]: BottomRight
-pub struct BoundingBox(pub Point3<f64>);
+#[allow(dead_code)]
+pub struct BoundingBox{
+    min: Point3<f64>,
+    max: Point3<f64>
+}
 
 impl Component for BoundingBox{
     type Storage = VecStorage<Self>;
