@@ -5,21 +5,21 @@ pub fn to_secs(dur: time::Duration) -> f64{
     dur.subsec_nanos() as f64 / 1e6
 }
 
-pub struct UpdateTimer{
+pub struct Clock{
     previous: time::Instant,
     pub accumulator: time::Duration,
     pub elapsed: time::Duration,
     pub max_ups: time::Duration
 }
 
-impl UpdateTimer{
-    pub fn new(max_ups: u64) -> UpdateTimer{
+impl Clock{
+    pub fn new(max_ups: u64) -> Self{
         let previous = time::Instant::now();
         let accumulator = time::Duration::from_secs(1);
         let elapsed = time::Duration::from_secs(0);
         let max_ups = time::Duration::from_millis(max_ups);
 
-        UpdateTimer{
+        Self{
             previous,
             elapsed,
             accumulator,

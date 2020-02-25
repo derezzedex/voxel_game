@@ -1,4 +1,4 @@
-use std::io::Cursor;
+    use std::io::Cursor;
 use std::path::Path;
 use image::GenericImageView;
 
@@ -34,7 +34,7 @@ impl TextureStorage{
             }
         }
 
-        let texture_array = TextureArray::new(display, textures).unwrap();
+        let texture_array = TextureArray::with_mipmaps(display, textures, glium::texture::MipmapsOption::NoMipmap).unwrap();
 
         Self{
             texture_array,
