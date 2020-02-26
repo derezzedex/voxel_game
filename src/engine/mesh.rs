@@ -26,9 +26,11 @@ impl MeshData{
     }
 
     pub fn build(&self, display: &glium::Display) -> Mesh{
+        let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB");
+        let ib = glium::IndexBuffer::new(display, glium::index::PrimitiveType::TrianglesList, &self.indices[..]).expect("Couldn't create IB");
         Mesh{
-            vb: glium::vertex::VertexBuffer::immutable(display, &self.vertices[..]).expect("Couldn't create VB"),
-            ib: glium::IndexBuffer::immutable(display, glium::index::PrimitiveType::TrianglesList, &self.indices[..]).expect("Couldn't create IB")
+            vb,
+            ib
         }
     }
 }

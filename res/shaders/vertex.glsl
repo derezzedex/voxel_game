@@ -10,9 +10,11 @@ uniform mat4 p;
 
 out vec2 f_uv;
 out vec2 f_block;
+out vec4 f_viewspace;
 
 void main() {
     f_uv = uv;
     f_block = block;
+    f_viewspace = v * m * vec4(position, 1);
     gl_Position = p * v * m * vec4(position, 1.0);
 }

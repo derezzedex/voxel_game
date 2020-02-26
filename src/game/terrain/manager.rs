@@ -71,7 +71,7 @@ impl TerrainManager {
 
     pub fn setup(&mut self, _display: &glium::Display) {
         for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
-            for y in -1..=0{
+            for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
                 for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
                     self.generate_chunk(ChunkPosition::new(x, y, z));
                 }
@@ -84,9 +84,9 @@ impl TerrainManager {
         if position != self.position{
             self.position = position;
             for z in -LOAD_DISTANCE..=LOAD_DISTANCE{
-                for y in -1..=0{
+                for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
                     for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
-                        let position = ChunkPosition::new(position.x + x, y, position.z + z);
+                        let position = ChunkPosition::new(position.x + x, position.y + y, position.z + z);
                         if !self.chunks.contains_key(&position){
                             self.generate_chunk(position);
                         }
@@ -106,6 +106,7 @@ impl TerrainManager {
         for c_ref in self.chunks.clone().iter(){
             let position = c_ref.key();
             if (position.x >= self.position.x - LOAD_DISTANCE && position.x <= self.position.x + LOAD_DISTANCE)
+            && (position.y >= self.position.y - LOAD_DISTANCE && position.y <= self.position.y + LOAD_DISTANCE)
             && (position.z >= self.position.z - LOAD_DISTANCE && position.z <= self.position.z + LOAD_DISTANCE){
                 if !self.meshes.contains_key(position) && !self.visible_chunks.contains_key(position){
                     self.send_to_mesh(position);
@@ -119,7 +120,9 @@ impl TerrainManager {
         }
 
         if let Ok((position, data)) = self.mesher.receive(){
+            // let time = std::time::Instant::now();
             let mesh = data.build(display);
+            // println!("Buffer creation: {:?}", time.elapsed());
             self.meshes.insert(position, mesh);
         }
     }
@@ -176,6 +179,8 @@ impl TerrainManager {
             let stone = registry.block_registry().id_of("stone").unwrap_or(1);
             let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
 
+            let frequency = 0.005f64;
+
             for z in 0..CHUNKSIZE {
                 for y in 0..CHUNKSIZE {
                     for x in 0..CHUNKSIZE {
@@ -183,10 +188,11 @@ impl TerrainManager {
                         let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
                         let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
 
+                        let elevation = 6. * noise.get([nx * frequency, nz * frequency]);
                         let height = range_map(
-                            2. * noise.get([nx * 0.01, nz * 0.01]),
+                            elevation,
                             [-1., 1.],
-                            [0., CHUNKSIZE as f64 / 2.],
+                            [0., CHUNKSIZE as f64],
                         )
                         .round();
 
@@ -286,7 +292,6 @@ impl TerrainManager {
                 }
 
                 if mesh.indices.len() != 0 {
-                    // println!("Sending!");
                     sender
                         .send((position, mesh))
                         .expect("Couldn't send chunk to main thread!");

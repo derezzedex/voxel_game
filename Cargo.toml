@@ -11,6 +11,7 @@ readme = "README.md"
 [dependencies]
 glium = "0.22"
 cgmath = "*"
+collision = "0.20.1"
 image = "*"
 rayon = "*"
 specs = "*"

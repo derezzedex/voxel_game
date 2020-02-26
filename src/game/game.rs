@@ -9,7 +9,8 @@ use crate::engine::utils::clock::*;
 
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
-use cgmath::{Vector3, Zero};
+use cgmath::{Point3, Vector3, Zero};
+use collision::{Frustum, Aabb3, Relation};
 use specs::prelude::*;
 
 use std::path::Path;
@@ -246,29 +247,37 @@ impl Game {
             .sampled()
             .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
             .wrap_function(glium::uniforms::SamplerWrapFunction::Repeat);
-        let perspective: [[f32; 4]; 4] = cgmath::perspective(
+        let perspective = cgmath::perspective(
             cgmath::Rad::from(cgmath::Deg(90f64)),
             self.context.get_aspect_ratio(),
             0.1f64,
             1024f64,
         )
         .cast::<f32>() // Casts internal f64 to f32, since 'double' support in video grahics card is fairly recent...
-        .expect("Couldn't cast Perspective f64 to f32")
-        .into();
-        let view: [[f32; 4]; 4] = self
+        .expect("Couldn't cast Perspective f64 to f32");
+        // .into();
+
+        let view = self
             .camera
             .get_view()
             .cast::<f32>()
-            .expect("Couldn't cast View f64 to f32")
-            .into();
+            .expect("Couldn't cast View f64 to f32");
+            // .into();
+
+        let frustum = Frustum::from_matrix4((perspective * view).into()).expect("No frustum!");
+        let view: [[f32; 4]; 4] = view.into();
+        let perspective: [[f32; 4]; 4] = perspective.into();
 
         self.terrain_manager.mesh_chunks(self.context.get_display());
         for mesh_ref in self.terrain_manager.get_meshes().iter(){
             let (position, mesh) = mesh_ref.pair();
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
-                Vector3::new(position.x as f32, position.y as f32, position.z as f32)
-                    * CHUNKSIZE as f32,
-            )
+            let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
+            let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
+            if frustum.contains(&aabb) == Relation::Out{
+                continue;
+            }
+
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
             .into();
             let uniforms = uniform! {
                 m: model,
