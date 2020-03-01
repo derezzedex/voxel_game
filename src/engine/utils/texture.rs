@@ -1,4 +1,4 @@
-    use std::io::Cursor;
+use std::io::Cursor;
 use std::path::Path;
 use image::GenericImageView;
 
@@ -16,7 +16,6 @@ impl TextureStorage{
     pub fn new(display: &glium::Display, image_path: &Path, image_type: image::ImageFormat, tile_size: u32) -> Self{
         let cargo = env!("CARGO_MANIFEST_DIR");
         let path = Path::new(cargo).join(image_path);
-        println!("Creating texture array from: {:?}", path);
 
         let data = std::fs::read(path).expect("Couldn't read image!");
         let bytes = Cursor::new(&data[..]);

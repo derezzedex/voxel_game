@@ -175,6 +175,7 @@ impl TerrainManager {
         self.threadpool.execute(move || {
             let mut chunk = Chunk::new(0);
             let grass = registry.block_registry().id_of("grass").unwrap_or(1);
+            let glass = registry.block_registry().id_of("glass").unwrap_or(1);
             let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
             let stone = registry.block_registry().id_of("stone").unwrap_or(1);
             let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
@@ -209,6 +210,7 @@ impl TerrainManager {
                 }
             }
 
+            chunk.set_block(0, 0, 0, glass);
             chunks.insert(position, Arc::new(chunk));
         });
     }
@@ -242,47 +244,7 @@ impl TerrainManager {
                                     let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
                                     if facing_data.is_transparent(){
                                         let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
-                                        let (x, y, z) = (x as f32, y as f32, z as f32);
-                                        let vertices = match direction{
-                                            Direction::North => vec![
-                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [0., 0.], block),
-                                                Vertex::new([x+HALF, y+(-HALF), z+HALF], [1., 0.], block),
-                                                Vertex::new([x+(-HALF), y+HALF, z+HALF],  [0., 1.], block),
-                                                Vertex::new([x+HALF, y+HALF, z+HALF],  [1., 1.], block)
-                                            ],
-                                            Direction::South => vec![
-                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [0., 0.], block),
-                                                Vertex::new([x+(-HALF), y+(-HALF), z+(-HALF)], [1., 0.], block),
-                                                Vertex::new([x+HALF, y+HALF, z+(-HALF)],  [0., 1.], block),
-                                                Vertex::new([x+(-HALF), y+HALF, z+(-HALF)],  [1., 1.], block)
-                                            ],
-                                            Direction::West => vec![
-                                                Vertex::new([x+(-HALF), y+(-HALF),z+(-HALF)], [0., 0.], block),
-                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [1., 0.], block),
-                                                Vertex::new([x+(-HALF),y+HALF, z+(-HALF)], [0., 1.], block),
-                                                Vertex::new([x+(-HALF), y+HALF,  z+HALF], [1., 1.], block)
-                                            ],
-                                            Direction::East => vec![
-                                                Vertex::new([x+HALF, y+(-HALF),  z+HALF], [0., 0.], block),
-                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [1., 0.], block),
-                                                Vertex::new([x+HALF,  y+HALF,  z+HALF], [0., 1.], block),
-                                                Vertex::new([x+HALF,  y+HALF, z+(-HALF)], [1., 1.], block)
-                                            ],
-                                            Direction::Top => vec![
-                                                Vertex::new([x+(-HALF), y+HALF, z+HALF], [0., 0.], block),
-                                                Vertex::new([x+HALF, y+HALF, z+HALF], [1., 0.], block),
-                                                Vertex::new([x+(-HALF), y+HALF, z+(-HALF)], [0., 1.], block),
-                                                Vertex::new([x+HALF, y+HALF, z+(-HALF)], [1., 1.], block)
-                                            ],
-                                            Direction::Bottom => vec![
-                                                Vertex::new([x+(-HALF), y+(-HALF), z+(-HALF)], [0., 0.], block),
-                                                Vertex::new([x+HALF, y+(-HALF), z+(-HALF)], [1., 0.], block),
-                                                Vertex::new([x+(-HALF), y+(-HALF), z+HALF], [0., 1.], block),
-                                                Vertex::new([x+HALF, y+(-HALF), z+HALF], [1., 1.], block)
-                                            ],
-                                        };
-                                        let indices = vec![2, 3, 1, 1, 0, 2];
-                                        mesh.add(vertices, indices);
+                                        mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
                                     }
 
                                 }

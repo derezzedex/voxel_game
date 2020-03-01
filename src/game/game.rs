@@ -6,6 +6,7 @@ use crate::game::terrain::manager::TerrainManager;
 use crate::engine::utils::camera::Camera;
 use crate::engine::utils::texture::TextureStorage;
 use crate::engine::utils::clock::*;
+use crate::engine::utils::raycast::raycast;
 
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
@@ -140,14 +141,14 @@ impl Game {
             .ecs_manager.read_storage::<components::Position>();
         let position = position_storage
             .get(self.player)
-            .expect("Failed to get Player Position");
-        self.camera.set_positon(position.0);
+            .expect("Failed to get Player Position").0;
+        self.camera.set_positon(position);
         self.camera.update();
 
         let cam_chunk_pos = ChunkPosition::new(
-            (position.0.x / (CHUNKSIZE - 1) as f64).floor() as isize,
-            (position.0.y / (CHUNKSIZE - 1) as f64).floor() as isize,
-            (position.0.z / (CHUNKSIZE - 1) as f64).floor() as isize,
+            (position.x / (CHUNKSIZE - 1) as f64).floor() as isize,
+            (position.y / (CHUNKSIZE - 1) as f64).floor() as isize,
+            (position.z / (CHUNKSIZE - 1) as f64).floor() as isize,
         );
         self.terrain_manager.update(cam_chunk_pos);
     }
@@ -288,6 +289,30 @@ impl Game {
 
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
+
+        let position = self.camera.get_position();
+        let front = self.camera.get_front();
+        let ray = raycast(position, front, 8., |p, f| { if p.map(|p| p.trunc()) == Point3::new(0., 0., 0.){ true }else{ false} });
+        if let Some((position, facing)) = ray{
+            use crate::engine::mesh::MeshData;
+            use crate::game::terrain::block::Direction;
+            let mut selected = MeshData::new();
+            let direction = Direction::from(facing.cast::<f32>().expect("no"));
+            selected.add_face(position.cast::<f32>().expect("oh no"), direction, [0, 0]);
+            let mesh = selected.build(self.context.get_display());
+
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(facing.cast::<f32>().expect("no no")/10.)//[position.x as f32, position.y as f32, position.z as f32].into())
+            .into();
+            let uniforms = uniform! {
+                m: model,
+                v: view,
+                p: perspective,
+                t: texture
+            };
+            self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
+        }
+
+        self.context.draw_ui();
 
         self.context.finish_frame();
     }

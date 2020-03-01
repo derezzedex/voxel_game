@@ -1,4 +1,7 @@
 use crate::engine::Vertex;
+use crate::engine::ui::UIManager;
+
+use cgmath::SquareMatrix;
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
 use std::fs;
@@ -11,6 +14,7 @@ pub struct Context {
     pub events_loop: glium::glutin::EventsLoop,
     pub display: glium::Display,
     pub shader_program: glium::Program,
+    ui_manager: UIManager,
     window_dimensions: (u32, u32),
     mouse_grab: bool,
     render_params: glium::DrawParameters<'static>,
@@ -62,6 +66,9 @@ impl Context {
             ..Default::default()
         };
 
+        let ui_path = Path::new("img").join("ui").join("crosshair.png");
+        let ui_manager = UIManager::new(&display, &ui_path, image::ImageFormat::Png);
+
         let frame = None;
         let mouse_grab = true;
         display.gl_window().window().grab_cursor(mouse_grab).expect("Couldn't grab the cursor!");
@@ -70,6 +77,7 @@ impl Context {
         Self {
             events_loop,
             display,
+            ui_manager,
             window_dimensions,
             mouse_grab,
             render_params,
@@ -143,6 +151,35 @@ impl Context {
             .as_mut()
             .unwrap()
             .draw(vb, ib, &self.shader_program, u, &self.render_params)
+            .unwrap();
+    }
+
+    pub fn draw_ui(&mut self){
+        let mesh = self.ui_manager.get_mesh();
+        let texture = self.ui_manager.get_sampled();
+        let projection: [[f32; 4]; 4] = cgmath::ortho(0., 10., 10., 0., 0., 1.).into();
+        let size = cgmath::Matrix4::from_nonuniform_scale(0.1, 0.1, 0.);
+        let position = cgmath::Matrix4::from_translation(cgmath::Vector3::new(9.7, 9.7, 0.));
+        let model: [[f32; 4]; 4] = (position + size).into();
+        // for i in &model{
+        //     println!("{:?}", i);
+        // }
+
+        let uniforms = uniform!{
+            t: texture,
+            p: projection,
+            m: model
+        };
+
+        let render_params = glium::DrawParameters {
+            blend: glium::Blend::alpha_blending(),
+            ..Default::default()
+        };
+
+        self.frame
+            .as_mut()
+            .unwrap()
+            .draw(mesh.get_vb(), mesh.get_ib(), self.ui_manager.get_shader(), &uniforms, &render_params)
             .unwrap();
     }
 

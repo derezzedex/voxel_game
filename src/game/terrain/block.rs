@@ -1,5 +1,6 @@
 use cgmath::Vector3;
 use num_enum::TryFromPrimitive;
+use cgmath::InnerSpace;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
 #[repr(usize)]
@@ -21,6 +22,21 @@ impl Direction{
             Direction::Bottom => Vector3::new(0, -1, 0),
             Direction::North => Vector3::new(0, 0, 1),
             Direction::South => Vector3::new(0, 0, -1),
+        }
+    }
+}
+
+#[allow(illegal_floating_point_literal_pattern)]
+impl From<Vector3<f32>> for Direction{
+    fn from(v: Vector3<f32>) -> Self {
+        match v.normalize(){
+            Vector3 { x: 1., .. } => Direction::East,
+            Vector3 { x: -1., .. } => Direction::West,
+            Vector3 { y: 1., .. } => Direction::Top,
+            Vector3 { y: -1., .. } => Direction::Bottom,
+            Vector3 { z: 1., .. } => Direction::North,
+            Vector3 { z: -1., .. } | _ => Direction::South,
+            // _ => {println!("v: {:?}", v); panic!("More than one direction found!")},
         }
     }
 }
