@@ -1,3 +1,4 @@
+use crate::engine::utils::raycast::raycast2;
 use crate::engine::renderer::Context;
 use crate::game::ecs::ECSManager;
 use crate::game::registry::Registry;
@@ -6,11 +7,11 @@ use crate::game::terrain::manager::TerrainManager;
 use crate::engine::utils::camera::Camera;
 use crate::engine::utils::texture::TextureStorage;
 use crate::engine::utils::clock::*;
-use crate::engine::utils::raycast::raycast;
+use crate::engine::utils::raycast::{raycast};
 
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
-use cgmath::{Point3, Vector3, Zero};
+use cgmath::{Point3, Vector3, Zero, InnerSpace};
 use collision::{Frustum, Aabb3, Relation};
 use specs::prelude::*;
 
@@ -265,7 +266,8 @@ impl Game {
             .expect("Couldn't cast View f64 to f32");
             // .into();
 
-        let frustum = Frustum::from_matrix4((perspective * view).into()).expect("No frustum!");
+        let projection = perspective * view;
+        let frustum = Frustum::from_matrix4(projection.into()).expect("No frustum!");
         let view: [[f32; 4]; 4] = view.into();
         let perspective: [[f32; 4]; 4] = perspective.into();
 
@@ -292,7 +294,12 @@ impl Game {
 
         let position = self.camera.get_position();
         let front = self.camera.get_front();
-        let ray = raycast(position, front, 8., |p, f| { if p.map(|p| p.trunc()) == Point3::new(0., 0., 0.){ true }else{ false} });
+        // let target = Point3::new(0., 0., 0.);
+        // let position = Point3::new(0., 0., -8.);
+        // let front = Vector3::new(0., 0., 1.);
+
+        let ray = raycast(position, position+front, 8., |p, _f| { if p.map(|p| p.floor()) == Point3::new(0., 0., 0.){ true }else{ false} });
+
         if let Some((position, facing)) = ray{
             use crate::engine::mesh::MeshData;
             use crate::game::terrain::block::Direction;
@@ -301,7 +308,7 @@ impl Game {
             selected.add_face(position.cast::<f32>().expect("oh no"), direction, [0, 0]);
             let mesh = selected.build(self.context.get_display());
 
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(facing.cast::<f32>().expect("no no")/10.)//[position.x as f32, position.y as f32, position.z as f32].into())
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(facing.cast::<f32>().expect("no no")/1000.)//[position.x as f32, position.y as f32, position.z as f32].into())
             .into();
             let uniforms = uniform! {
                 m: model,
@@ -312,7 +319,22 @@ impl Game {
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
 
-        self.context.draw_ui();
+        let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
+        .into();
+        let uniforms = uniform! {
+            m: model,
+            v: view,
+            p: perspective
+        };
+        // let position = Point3::new(0f64, 0., 0.);
+        // let front = Vector3::new(0f64, 1., 0.);
+        let start = (position+front).cast::<f32>().expect("nono");
+        let end = (position+front*8.).cast::<f32>().expect("no2");
+        self.context.draw_line(start, end + Vector3::new(1., 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
+        self.context.draw_line(start, end + Vector3::new(0., 1., 0.), [0., 1., 0., 1.], &uniforms); // y - green
+        self.context.draw_line(start, end + Vector3::new(0., 0., 1.), [0., 0., 1., 1.], &uniforms); // z - blue
+
+        // self.context.draw_ui();
 
         self.context.finish_frame();
     }

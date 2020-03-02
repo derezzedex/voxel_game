@@ -1,7 +1,8 @@
-use crate::engine::Vertex;
+use cgmath::Point3;
+use crate::engine::{DebugVertex, Vertex};
 use crate::engine::ui::UIManager;
+use crate::engine::mesh::{DebugMeshData};
 
-use cgmath::SquareMatrix;
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
 use std::fs;
@@ -13,7 +14,8 @@ pub const DEFAULT_HEIGHT: u32 = 768;
 pub struct Context {
     pub events_loop: glium::glutin::EventsLoop,
     pub display: glium::Display,
-    pub shader_program: glium::Program,
+    chunk_program: glium::Program,
+    debug_program: glium::Program,
     ui_manager: UIManager,
     window_dimensions: (u32, u32),
     mouse_grab: bool,
@@ -45,13 +47,25 @@ impl Context {
 
         let cargo_dir = env!("CARGO_MANIFEST_DIR");
 
+        // CHUNK SHADER
         let vertex_shader_src =
             fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(vert))
                 .expect("Something went wrong reading the file");
         let fragment_shader_src =
             fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(frag))
                 .expect("Something went wrong reading the file");
-        let shader_program =
+        let chunk_program =
+            glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
+                .unwrap();
+
+        // DEBUG SHADER
+        let vertex_shader_src =
+            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join("debug").join("vertex.glsl"))
+                .expect("Something went wrong reading the file");
+        let fragment_shader_src =
+            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join("debug").join("fragment.glsl"))
+                .expect("Something went wrong reading the file");
+        let debug_program =
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
                 .unwrap();
 
@@ -81,7 +95,8 @@ impl Context {
             window_dimensions,
             mouse_grab,
             render_params,
-            shader_program,
+            chunk_program,
+            debug_program,
             frame,
         }
     }
@@ -150,7 +165,7 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .draw(vb, ib, &self.shader_program, u, &self.render_params)
+            .draw(vb, ib, &self.chunk_program, u, &self.render_params)
             .unwrap();
     }
 
@@ -183,8 +198,30 @@ impl Context {
             .unwrap();
     }
 
-    pub fn get_program(&self) -> &glium::Program {
-        &self.shader_program
+    pub fn draw_line<T: AsUniformValue, R: Uniforms>(&mut self, from: Point3<f32>, to: Point3<f32>, color: [f32; 4], uniforms: &glium::uniforms::UniformsStorage<T, R>){
+        let mut mesh = DebugMeshData::new();
+        let vertices = vec![
+            DebugVertex::new([from.x, from.y, from.z], color),
+            DebugVertex::new([to.x, to.y, to.z], color),
+        ];
+        mesh.add(vertices);
+        let mesh = mesh.build(self.get_display(), None);
+
+        let render_params = glium::DrawParameters {
+            // depth: glium::Depth {
+            //     test: glium::DepthTest::IfLess,
+            //     write: true,
+            //     ..Default::default()
+            // },
+            line_width: Some(4.),
+            ..Default::default()
+        };
+
+        self.frame
+            .as_mut()
+            .unwrap()
+            .draw(mesh.get_vb(), mesh.get_ib(), &self.debug_program, uniforms, &render_params)
+            .unwrap();
     }
 
     pub fn new_frame(&mut self) {

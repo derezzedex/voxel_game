@@ -1,3 +1,4 @@
+use crate::engine::DebugVertex;
 use cgmath::Point3;
 use crate::engine::Vertex;
 use crate::game::terrain::block::Direction;
@@ -97,3 +98,45 @@ impl Mesh{
         &self.ib
     }
  }
+
+ #[derive(Clone)]
+ pub struct DebugMeshData{
+     pub vertices: Vec<DebugVertex>
+ }
+
+ impl DebugMeshData{
+     pub fn new() -> Self{
+         Self{
+             vertices: Vec::new(),
+         }
+     }
+
+     pub fn add(&mut self, vertices: Vec<DebugVertex>){
+         self.vertices.extend_from_slice(&vertices);
+     }
+
+     pub fn build(&self, display: &glium::Display, primitive: Option<glium::index::PrimitiveType>) -> DebugMesh{
+         let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB");
+         let ib = glium::index::NoIndices(primitive.unwrap_or(glium::index::PrimitiveType::LinesList));
+
+         DebugMesh{
+             vb,
+             ib
+         }
+     }
+ }
+
+ pub struct DebugMesh{
+     vb: glium::vertex::VertexBuffer<DebugVertex>,
+     ib: glium::index::NoIndices
+ }
+
+ impl DebugMesh{
+     pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<DebugVertex>{
+         &self.vb
+     }
+
+     pub fn get_ib(&self) -> &glium::index::NoIndices{
+         &self.ib
+     }
+  }

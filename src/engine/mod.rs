@@ -17,6 +17,23 @@ impl Vertex{
 
 implement_vertex!(Vertex, position, uv, block);
 
+#[derive(Copy, Clone, Debug)]
+pub struct DebugVertex {
+    pub position: [f32; 3],
+    pub color: [f32; 4]
+}
+
+impl DebugVertex{
+    pub const fn new(position: [f32; 3], color: [f32; 4]) -> Self{
+        Self{
+            position,
+            color
+        }
+    }
+}
+
+implement_vertex!(DebugVertex, position, color);
+
 pub mod renderer;
 pub mod mesh;
 pub mod utils;
