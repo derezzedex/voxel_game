@@ -1,3 +1,4 @@
+use crate::game::terrain::block::BlockData;
 use super::chunk::CHUNKSIZE;
 use super::chunk::{Chunk, ChunkPosition};
 use super::block::Direction;
@@ -21,8 +22,7 @@ pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
 }
 
 
-pub const LOAD_DISTANCE: isize = 6;
-pub const HALF: f32 = 0.5;
+pub const LOAD_DISTANCE: isize = 2;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
@@ -97,8 +97,20 @@ impl TerrainManager {
     }
 
     pub fn dirty_chunk(&mut self, position: ChunkPosition){
-        self.meshes.remove(&position);
-        self.visible_chunks.remove(&position);
+        // self.meshes.remove(&position);
+        // self.visible_chunks.remove(&position);
+        self.send_to_mesh(&position);
+        let neighbors = [
+            Point3::new(position.x + 1, position.y, position.z),
+            Point3::new(position.x - 1, position.y, position.z),
+            Point3::new(position.x, position.y + 1, position.z),
+            Point3::new(position.x, position.y - 1, position.z),
+            Point3::new(position.x, position.y, position.z + 1),
+            Point3::new(position.x, position.y, position.z - 1)
+        ];
+        for chunk in &neighbors{
+            self.send_to_mesh(chunk);
+        }
     }
 
     pub fn mesh_chunks(&mut self, display: &glium::Display) {
@@ -135,11 +147,13 @@ impl TerrainManager {
         &self.meshes
     }
 
-    pub fn block_at(&self, x: f64, y: f64, z: f64) -> Option<usize>{
+    pub fn block_at(&self, x: f32, y: f32, z: f32) -> Option<(usize, &BlockData)>{
         let chunk_pos = ChunkPosition::from_world(x, y, z);
         if let Some(chunk_ref) = self.chunks.get(&chunk_pos){
-            let b_pos = [x % CHUNKSIZE as f64, y % CHUNKSIZE as f64, z % CHUNKSIZE as f64];
-            return Some(chunk_ref.value().get_block(b_pos[0].abs() as usize, b_pos[1].abs() as usize, b_pos[2].abs() as usize));
+            let b_pos = [(((x % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((y % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((z % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize];
+            let block = chunk_ref.value().get_block(b_pos[0], b_pos[1], b_pos[2]);
+            let data = self.registry.block_registry().by_id(block).expect(&format!("Unknown block: {}", block));
+            return Some((block, data));
         }
 
         None

@@ -2,13 +2,13 @@ use cgmath::Point3;
 use std::sync::Arc;
 
 pub trait FromWorld{
-    fn from_world(x: f64, y: f64, z: f64) -> Self;
+    fn from_world(x: f32, y: f32, z: f32) -> Self;
 }
 
 pub type ChunkPosition = Point3<isize>;
 impl FromWorld for ChunkPosition{
-    fn from_world(x: f64, y: f64, z: f64) -> ChunkPosition{
-        ChunkPosition::new((x / (CHUNKSIZE-1) as f64).floor() as isize, (y / (CHUNKSIZE-1) as f64).floor() as isize, (z / (CHUNKSIZE-1) as f64).floor() as isize)
+    fn from_world(x: f32, y: f32, z: f32) -> ChunkPosition{
+        ChunkPosition::new((x / (CHUNKSIZE) as f32).floor() as isize, (y / (CHUNKSIZE) as f32).floor() as isize, (z / (CHUNKSIZE) as f32).floor() as isize)
     }
 }
 
