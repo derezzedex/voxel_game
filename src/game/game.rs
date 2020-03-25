@@ -10,13 +10,12 @@ use crate::engine::utils::raycast::VoxelRay;
 
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
-use cgmath::{Point3, Vector3, Zero, InnerSpace};
+use cgmath::{Point3, Vector3, Zero};
 use collision::{Frustum, Aabb3, Relation};
 use specs::prelude::*;
 
 use std::path::Path;
 use std::sync::Arc;
-use std::time::Instant;
 
 #[allow(dead_code)]
 pub struct Game {
@@ -94,7 +93,6 @@ impl Game {
     }
 
     pub fn tick(&mut self) {
-        let now = Instant::now();
         self.timer.readjust();
 
         self.handle_input();
@@ -104,7 +102,7 @@ impl Game {
             self.timer.update();
         }
 
-        self.render(now);
+        self.render();
         self.ecs_manager.maintain_world();
     }
 
@@ -167,31 +165,26 @@ impl Game {
                 glium::glutin::Event::WindowEvent { event, .. } => match event {
                     glium::glutin::WindowEvent::CloseRequested => self.running = false,
                     glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        if *button == glium::glutin::MouseButton::Left && *state == glium::glutin::ElementState::Released{
+                        if *state == glium::glutin::ElementState::Released{
                             let position = self.camera.get_position().cast::<f32>().expect("f64 to f32 failed");
                             let front = self.camera.get_front().cast::<f32>().expect("f64 to f32 failed");
                             let mut ray = VoxelRay::new(position, position+front, 8);
 
-                            if let Some((position, _)) = ray.until(|b, _f| {
+                            if let Some((mut position, face)) = ray.until(|b, _f| {
                                 if let Some((block, _)) = self.terrain_manager.block_at(b.x, b.y, b.z){
                                     if block != 0  { return true }
                                 }
                                 false
                             }){
-                                let timer = std::time::Instant::now();
-                                use crate::game::terrain::chunk::FromWorld;
-                                let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
-                                let mut modified = false;
-                                if let Some(mut chunk) = self.terrain_manager.get_chunks().get_mut(&c_pos){
-                                    let chunk = Arc::make_mut(chunk.value_mut());
-                                    let b_pos = [(((position.x % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((position.y % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((position.z % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize];
-                                    chunk.set_block(b_pos[0], b_pos[1], b_pos[2], 0);
-                                    modified = true;
-                                }
-                                if modified{
-                                    self.terrain_manager.dirty_chunk(c_pos);
-                                }
-                                println!("Duration: {:?}", timer.elapsed());
+                                let replacer = if *button == glium::glutin::MouseButton::Right{
+                                    position += face.cast::<f32>().expect("Couldn't cast f64 to f32");
+                                    2
+                                }else if *button == glium::glutin::MouseButton::Left{
+                                    0
+                                }else { 0 };
+                                // let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
+
+                                self.terrain_manager.set_block(position.x, position.y, position.z, replacer);
                             }
                         }
                     },
@@ -266,7 +259,7 @@ impl Game {
         }
     }
 
-    pub fn render(&mut self, _timer: Instant) {
+    pub fn render(&mut self) {
         self.context.new_frame();
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
         // self.context.clear_color([0.5, 0.5, 0.5, 1.0]);
@@ -322,16 +315,12 @@ impl Game {
 
         let position = self.camera.get_position();
         let front = self.camera.get_front();
-        // let target = Point3::new(0., 0., 0.);
-        // let position = Point3::new(0., 0., -8.);
-        // let front = Vector3::new(0., 0., 1.);
         let position = position.cast::<f32>().expect("Failed to cast Position to f32");
         let front = front.cast::<f32>().expect("Failed to cast Front to f32");
         let mut ray = VoxelRay::new(position, position+front, 8);
-        // let ray = raycast(position, position+front, 8., |p, _f| { if p.map(|p| p.trunc()) == Point3::new(0., 0., 0.){ /*println!("pos: {:?} face: {:?}", p, f);*/ true }else{ false} });
 
         if let Some((position, face)) = ray.until(|b, _f| {
-            if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
+            if let Some((block, _data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
                 // println!("{:?}", b);
                 // if !data.is_transparent(){ return true }
                 if block != 0  { return true }
@@ -341,6 +330,7 @@ impl Game {
             use crate::engine::mesh::MeshData;
             use crate::game::terrain::block::Direction;
             let mut selected = MeshData::new();
+            let face = face.cast::<f32>().expect("Couldn't cast from i8 to f32");
             let direction = Direction::from(face);
             selected.add_face(position.cast::<f32>().expect("oh no"), direction, [0, 0]);
             let mesh = selected.build(self.context.get_display());
@@ -356,25 +346,6 @@ impl Game {
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
 
-        // if let Some((position, facing)) = ray{
-        //     use crate::engine::mesh::MeshData;
-        //     use crate::game::terrain::block::Direction;
-        //     let mut selected = MeshData::new();
-        //     let direction = Direction::from(facing.cast::<f32>().expect("no"));
-        //     selected.add_face(position.cast::<f32>().expect("oh no"), direction, [0, 0]);
-        //     let mesh = selected.build(self.context.get_display());
-        //
-        //     let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(facing.cast::<f32>().expect("no no")/1000.)//[position.x as f32, position.y as f32, position.z as f32].into())
-        //     .into();
-        //     let uniforms = uniform! {
-        //         m: model,
-        //         v: view,
-        //         p: perspective,
-        //         t: texture
-        //     };
-        //     self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
-        // }
-
         let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
         .into();
         let uniforms = uniform! {
@@ -382,8 +353,7 @@ impl Game {
             v: view,
             p: perspective
         };
-        // let position = Point3::new(0f64, 0., 0.);
-        // let front = Vector3::new(0f64, 1., 0.);
+
         let start = (position+front).cast::<f32>().expect("nono");
         let end = (position+front*8.).cast::<f32>().expect("no2");
         self.context.draw_line(start, end + Vector3::new(1., 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
@@ -391,7 +361,7 @@ impl Game {
         self.context.draw_line(start, end + Vector3::new(0., 0., 1.), [0., 0., 1., 1.], &uniforms); // z - blue
 
         // self.context.draw_ui();
-
         self.context.finish_frame();
+
     }
 }

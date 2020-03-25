@@ -30,15 +30,14 @@ impl Chunk{
     }
 
     pub fn get_block(&self, x: usize, y: usize, z: usize) -> usize{
-        if x >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
-        if y >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
-        if z >= CHUNKSIZE { panic!("Error: {:?}", [x, y, z])}
+        if x >= CHUNKSIZE { panic!("Accessing invalid block: {:?}", [x, y, z])}
+        if y >= CHUNKSIZE { panic!("Accessing invalid block: {:?}", [x, y, z])}
+        if z >= CHUNKSIZE { panic!("Accessing invalid block: {:?}", [x, y, z])}
         self.blocks[x][y][z]
     }
 
     pub fn check_block(&self, x: isize, y: isize, z: isize, neighbors: Vec<Option<Arc<Chunk>>>) -> usize{
         if x >= CHUNKSIZE as isize {
-            // println!("Block: {:?}", (x, y, z));
             match &neighbors[0]{
                 Some(chunk) => return chunk.get_block(0, y as usize, z as usize),
                 None => return 0,

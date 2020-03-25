@@ -5,7 +5,6 @@ use super::block::Direction;
 use crate::engine::mesh::{Mesh, MeshData};
 use crate::game::registry::Registry;
 use crate::game::terrain::chunk::FromWorld;
-use crate::engine::Vertex;
 use super::mesher::*;
 
 use cgmath::{Point3, Vector3};
@@ -115,6 +114,7 @@ impl TerrainManager {
 
     pub fn mesh_chunks(&mut self, display: &glium::Display) {
         //temp
+        let mut remove_list = Vec::new();
         for c_ref in self.chunks.clone().iter(){
             let position = c_ref.key();
             if (position.x >= self.position.x - LOAD_DISTANCE && position.x <= self.position.x + LOAD_DISTANCE)
@@ -128,13 +128,16 @@ impl TerrainManager {
                 self.meshes.remove(position);
                 self.visible_chunks.remove(position);
                 // self.chunks.remove(position);
+                remove_list.push(position.clone());
             }
         }
 
+        for chunk in remove_list{
+            self.chunks.remove(&chunk);
+        }
+
         if let Ok((position, data)) = self.mesher.receive(){
-            // let time = std::time::Instant::now();
             let mesh = data.build(display);
-            // println!("Buffer creation: {:?}", time.elapsed());
             self.meshes.insert(position, mesh);
         }
     }
@@ -157,6 +160,40 @@ impl TerrainManager {
         }
 
         None
+    }
+
+    pub fn set_block(&mut self, x: f32, y: f32, z: f32, block: usize){
+        let c_pos = ChunkPosition::from_world(x, y, z);
+        let block = if let Some(mut chunk) = self.chunks.get_mut(&c_pos){
+            let chunk = Arc::make_mut(chunk.value_mut());
+            let b_pos = Point3::new((((x % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((y % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((z % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize);
+            chunk.set_block(b_pos.x, b_pos.y, b_pos.z, block);
+
+            Some(b_pos)
+        }else{
+            None
+        };
+
+        if let Some(block) = block{
+            if block.x + 1 > CHUNKSIZE{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x + 1, c_pos.y, c_pos.z));
+            }else if block.x as isize - 1 < 0{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x - 1, c_pos.y, c_pos.z));
+            }
+
+            if block.y + 1 > CHUNKSIZE{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y + 1, c_pos.z));
+            }else if block.y as isize - 1 < 0{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y - 1, c_pos.z));
+            }
+
+            if block.z + 1 > CHUNKSIZE{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z + 1));
+            }else if block.z as isize - 1 < 0{
+                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z - 1));
+            }
+            self.dirty_chunk(c_pos);
+        }
     }
 
     fn chunk_neighbors(&self, position: &ChunkPosition) -> [Option<ChunkRef>; 6] {
@@ -245,6 +282,7 @@ impl TerrainManager {
             self.threadpool.execute(move || {
                 let mut mesh = MeshData::new();
                 let air = registry.block_registry().id_of("air").expect("Air missing in Registry!");
+                let block_mesh = registry.mesh_registry().id_of("block").expect("Block mesh missing in Registry!");
 
                 for x in 0..CHUNKSIZE{
                     for y in 0..CHUNKSIZE{
@@ -252,16 +290,24 @@ impl TerrainManager {
                             let block = chunk.get_block(x, y, z);
 
                             if block != air{
-                                for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
-                                    let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
-                                    let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
-                                    let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
-                                    if facing_data.is_transparent(){
-                                        let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
-                                        mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
-                                    }
+                                let b_data = registry.block_registry().by_id(block).expect("Unknown block in chunk");
+                                let b_mesh = b_data.get_mesh();
+                                if b_mesh == block_mesh{
+                                    for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
+                                        let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
+                                        let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
+                                        let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
+                                        if facing_data.is_transparent(){
+                                            let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
+                                            mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                        }
 
+                                    }
+                                }else{
+                                    let custom_mesh = registry.mesh_registry().by_id(b_mesh).expect("Unknown mesh in chunk");
+                                    mesh.append(custom_mesh.clone());
                                 }
+
                             }
                         }
                     }

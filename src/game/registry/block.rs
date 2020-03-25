@@ -1,13 +1,9 @@
 use dashmap::DashMap;
-use crate::game::terrain::block::{Direction, BlockData};
-
-// pub struct ItemData{
-//     name: String,
-//     max_stack: usize,
-// }
+pub use crate::game::terrain::block::{Direction, BlockData};
 
 pub struct BlockDataBuilder{
     faces: Option<[[u32; 2]; 6]>,
+    mesh: Option<usize>,
     breakable: Option<bool>,
     transparent: Option<bool>
 }
@@ -16,6 +12,7 @@ impl Default for BlockDataBuilder{
     fn default() -> Self{
         Self{
             faces: Some([[0, 0]; 6]),
+            mesh: Some(0),
             breakable: Some(true),
             transparent: Some(false)
         }
@@ -25,6 +22,11 @@ impl Default for BlockDataBuilder{
 impl BlockDataBuilder{
     pub fn faces(mut self, faces: [[u32; 2]; 6]) -> Self{
         self.faces = Some(faces);
+        self
+    }
+
+    pub fn mesh(mut self, id: usize) -> Self{
+        self.mesh = Some(id);
         self
     }
 
@@ -56,7 +58,7 @@ impl BlockDataBuilder{
     }
 
     pub fn build(self) -> BlockData{
-        BlockData::new(self.faces.expect("Missing faces"), self.breakable.expect("Missing breakable"), self.transparent.expect("Missing transparent"))
+        BlockData::new(self.faces.expect("Missing faces"), self.mesh.expect("Missing mesh id"), self.breakable.expect("Missing breakable"), self.transparent.expect("Missing transparent"))
     }
 }
 
@@ -101,56 +103,5 @@ impl BlockRegistry{
         }
 
         return None;
-    }
-}
-
-pub struct Registry{
-    blocks: BlockRegistry,
-}
-
-impl Registry{
-    pub fn new() -> Self{
-        let blocks = BlockRegistry::new();
-        Self{
-            blocks
-        }
-    }
-
-    pub fn setup(&mut self){
-        let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
-        self.blocks.add("air", air);
-
-        let missing = BlockDataBuilder::default().all_faces([0, 1]).build();
-        self.blocks.add("missing", missing);
-
-        let grass = BlockDataBuilder::default()
-            .all_faces([3, 15])
-            .face(Direction::Top, [0, 15])
-            .face(Direction::Bottom, [2, 15])
-            .build();
-        self.blocks.add("grass", grass);
-
-        let dirt = BlockDataBuilder::default().all_faces([2, 15]).build();
-        self.blocks.add("dirt", dirt);
-
-        let stone = BlockDataBuilder::default().all_faces([1, 15]).build();
-        self.blocks.add("stone", stone);
-
-        let bedrock = BlockDataBuilder::default()
-            .all_faces([1, 14])
-            .breakable(false)
-            .build();
-        self.blocks.add("bedrock", bedrock);
-
-        let glass = BlockDataBuilder::default()
-            .all_faces([0, 14])
-            .breakable(false)
-            .transparent(true)
-            .build();
-        self.blocks.add("glass", glass);
-    }
-
-    pub fn block_registry(&self) -> &BlockRegistry{
-        &self.blocks
     }
 }

@@ -19,7 +19,7 @@ impl VoxelRay{
     }
 
     //https://www.gamedev.net/forums/topic/624201-voxel-traversal-problem/
-    pub fn until<T: Fn(Point3<f32>, Vector3<f32>) -> bool>(&mut self, callback: T) -> Option<(Point3<f32>, Vector3<f32>)>{
+    pub fn until<T: Fn(Point3<f32>, Vector3<i8>) -> bool>(&mut self, callback: T) -> Option<(Point3<f32>, Vector3<i8>)>{
         self.position += Vector3::new(HALF_VOXEL, HALF_VOXEL, HALF_VOXEL);
         let mut position = self.position.map(|p| p.floor());
         let step = self.direction.map(|p| if p > 0. { 1. } else if p < 0. { -1. } else { 0. });
@@ -48,25 +48,25 @@ impl VoxelRay{
         if delta.y.is_nan() {delta.y = std::f32::INFINITY;};
         if delta.z.is_nan() {delta.z = std::f32::INFINITY;};
 
-        let mut face = Vector3::new(0., 0., 0.);
+        let mut face = Vector3::new(0, 0, 0);
 
         for _ in 0..self.length{
-            if callback(position, Vector3::new(0., 0., 0.)){
+            if callback(position, Vector3::new(0, 0, 0)){
                 return Some((position, face));
             }
 
             if max.x < max.y && max.x < max.z{
                 position.x += step.x;
                 max.x += delta.x;
-                face = Vector3::new(-step.x, 0., 0.);
+                face = Vector3::new(-step.x as i8, 0, 0);
             }else if max.y < max.z{
                 position.y += step.y;
                 max.y += delta.y;
-                face = Vector3::new(0., -step.y, 0.);
+                face = Vector3::new(0, -step.y as i8, 0);
             }else{
                 position.z += step.z;
                 max.z += delta.z;
-                face = Vector3::new(0., 0., -step.z);
+                face = Vector3::new(0, 0, -step.z as i8);
             }
         }
 

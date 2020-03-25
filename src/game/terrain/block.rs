@@ -45,17 +45,23 @@ impl From<Vector3<f32>> for Direction{
 #[derive(Default)]
 pub struct BlockData{
     faces: [[u32; 2]; 6],
+    mesh: usize,
     breakable: bool,
     transparent: bool
 }
 
 impl BlockData{
-    pub fn new(faces: [[u32; 2]; 6], breakable: bool, transparent: bool) -> Self{
+    pub fn new(faces: [[u32; 2]; 6], mesh: usize, breakable: bool, transparent: bool) -> Self{
         Self{
             faces,
+            mesh,
             breakable,
             transparent
         }
+    }
+
+    pub fn get_mesh(&self) -> usize{
+        self.mesh
     }
 
     pub fn get_face(&self, dir: Direction) -> [u32; 2]{

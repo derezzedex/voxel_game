@@ -31,6 +31,10 @@ impl MeshData{
         self.indices.extend_from_slice(&indices);
     }
 
+    pub fn append(&mut self, other: Self){
+        self.add(other.vertices, other.indices);
+    }
+
     pub fn add_face(&mut self, position: Point3<f32>, direction: Direction, block: [u32; 2]){
         let vertices = match direction{
             Direction::North => vec![
