@@ -2,8 +2,8 @@ use cgmath::{Point3, Vector3, InnerSpace};
 
 pub const HALF_VOXEL: f32 = 0.5;
 pub struct VoxelRay{
-    position: Point3<f32>,
-    direction: Vector3<f32>,
+    pub position: Point3<f32>,
+    pub direction: Vector3<f32>,
     length: usize,
 }
 
@@ -50,20 +50,24 @@ impl VoxelRay{
 
         let mut face = Vector3::new(0, 0, 0);
 
+        let length = self.length as f32 / (self.direction.x.powf(2.) + self.direction.y.powf(2.) + self.direction.z.powf(2.)).sqrt();
         for _ in 0..self.length{
             if callback(position, Vector3::new(0, 0, 0)){
                 return Some((position, face));
             }
 
             if max.x < max.y && max.x < max.z{
+                if max.x > length { break }
                 position.x += step.x;
                 max.x += delta.x;
                 face = Vector3::new(-step.x as i8, 0, 0);
             }else if max.y < max.z{
+                if max.y > length { break }
                 position.y += step.y;
                 max.y += delta.y;
                 face = Vector3::new(0, -step.y as i8, 0);
             }else{
+                if max.z > length { break }
                 position.z += step.z;
                 max.z += delta.z;
                 face = Vector3::new(0, 0, -step.z as i8);

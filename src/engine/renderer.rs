@@ -204,16 +204,71 @@ impl Context {
             DebugVertex::new([from.x, from.y, from.z], color),
             DebugVertex::new([to.x, to.y, to.z], color),
         ];
-        mesh.add(vertices);
-        let mesh = mesh.build(self.get_display(), None);
+        mesh.add(vertices, vec![0, 1]);
+        let mesh = mesh.build(self.get_display(), glium::index::PrimitiveType::LinesList);
 
         let render_params = glium::DrawParameters {
-            // depth: glium::Depth {
-            //     test: glium::DepthTest::IfLess,
-            //     write: true,
-            //     ..Default::default()
-            // },
             line_width: Some(4.),
+            ..Default::default()
+        };
+
+        self.frame
+            .as_mut()
+            .unwrap()
+            .draw(mesh.get_vb(), mesh.get_ib(), &self.debug_program, uniforms, &render_params)
+            .unwrap();
+    }
+
+    pub fn draw_hitbox<T: AsUniformValue, R: Uniforms>(&mut self, min: Point3<f32>, max: Point3<f32>, color: [f32; 4], uniforms: &glium::uniforms::UniformsStorage<T, R>){
+        let mut mesh = DebugMeshData::new();
+        let min = min.map(|p| p - (1./1000.));
+        let max = max.map(|p| p + (1./1000.));
+        mesh.add(
+        vec![
+            // back
+            DebugVertex::new([min.x, min.y, min.z], color), // 0, back-left-bottom
+            DebugVertex::new([min.x, min.y, max.z], color), // 1, back-right-bottom
+            DebugVertex::new([min.x, max.y, max.z], color), // 2, back-right-top
+            DebugVertex::new([min.x, max.y, min.z], color), // 3, back-left-top
+            // front
+            DebugVertex::new([max.x, min.y, min.z], color), // 4, front-left-bottom
+            DebugVertex::new([max.x, min.y, max.z], color), // 5, front-right-bottom
+            DebugVertex::new([max.x, max.y, max.z], color), // 6, front-right-top
+            DebugVertex::new([max.x, max.y, min.z], color), // 7, front-left-top
+        ],
+        vec![
+            // back
+            0, 1,
+            0, 3,
+            1, 2,
+            2, 3,
+
+            //front
+            4, 5,
+            4, 7,
+            5, 6,
+            6, 7,
+
+            // left-bottom
+            0, 4,
+            // left-top
+            3, 7,
+            // right-bottom
+            1, 5,
+            // right-top
+            2, 6,
+        ]
+        );
+        let mesh = mesh.build(self.get_display(), glium::index::PrimitiveType::LinesList);
+
+        let render_params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: true,
+                ..Default::default()
+            },
+            line_width: Some(2.),
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
             ..Default::default()
         };
 
@@ -233,3 +288,34 @@ impl Context {
         self.frame.take().unwrap().finish().expect("Couldn't finish frame!");
     }
 }
+
+// // top
+// DebugVertex::new([min.x, min.y, max.z], color),
+// DebugVertex::new([max.x, min.y, max.z], color),
+// DebugVertex::new([max.x, max.y, max.z], color),
+// DebugVertex::new([min.x, max.y, max.z], color),
+// // bottom
+// DebugVertex::new([min.x, max.y, min.z], color),
+// DebugVertex::new([max.x, max.y, min.z], color),
+// DebugVertex::new([max.x, min.y, min.z], color),
+// DebugVertex::new([min.x, min.y, min.z], color),
+// // right
+// DebugVertex::new([max.x, min.y, min.z], color),
+// DebugVertex::new([max.x, max.y, min.z], color),
+// DebugVertex::new([max.x, max.y, max.z], color),
+// DebugVertex::new([max.x, min.y, max.z], color),
+// // left
+// DebugVertex::new([min.x, min.y, max.z], color),
+// DebugVertex::new([min.x, max.y, max.z], color),
+// DebugVertex::new([min.x, max.y, min.z], color),
+// DebugVertex::new([min.x, min.y, min.z], color),
+// // front
+// DebugVertex::new([max.x, max.y, min.z], color),
+// DebugVertex::new([min.x, max.y, min.z], color),
+// DebugVertex::new([min.x, max.y, max.z], color),
+// DebugVertex::new([max.x, max.y, max.z], color),
+// // back
+// DebugVertex::new([max.x, min.y, max.z], color),
+// DebugVertex::new([min.x, min.y, max.z], color),
+// DebugVertex::new([min.x, min.y, min.z], color),
+// DebugVertex::new([max.x, min.y, min.z], color),

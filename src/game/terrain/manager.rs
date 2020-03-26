@@ -292,22 +292,28 @@ impl TerrainManager {
                             if block != air{
                                 let b_data = registry.block_registry().by_id(block).expect("Unknown block in chunk");
                                 let b_mesh = b_data.get_mesh();
-                                if b_mesh == block_mesh{
-                                    for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
-                                        let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
-                                        let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
-                                        let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
-                                        if facing_data.is_transparent(){
-                                            let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
-                                            mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                match b_data.get_mesh(){
+                                    b_mesh if b_mesh == block_mesh => {
+                                        for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
+                                            let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
+                                            let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
+                                            let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
+                                            if facing_data.is_transparent(){
+                                                let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
+                                                mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                            }
+
                                         }
-
-                                    }
-                                }else{
-                                    let custom_mesh = registry.mesh_registry().by_id(b_mesh).expect("Unknown mesh in chunk");
-                                    mesh.append(custom_mesh.clone());
+                                    },
+                                    _ => {
+                                        let mut custom_mesh = registry.mesh_registry().by_id(b_mesh).expect("Unknown mesh in chunk").get_mesh().clone();
+                                        let tex_coord = b_data.get_face(Direction::East);
+                                        for vertex in &mut custom_mesh.vertices{
+                                            vertex.block = tex_coord;
+                                        }
+                                        mesh.append(custom_mesh);
+                                    },
                                 }
-
                             }
                         }
                     }

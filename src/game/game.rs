@@ -11,7 +11,8 @@ use crate::engine::utils::raycast::VoxelRay;
 use crate::game::ecs::components;
 use crate::game::ecs::systems::*;
 use cgmath::{Point3, Vector3, Zero};
-use collision::{Frustum, Aabb3, Relation};
+use collision::{Frustum, Aabb3, Relation, Ray3};
+use collision::prelude::{Contains, Discrete};
 use specs::prelude::*;
 
 use std::path::Path;
@@ -318,32 +319,45 @@ impl Game {
         let position = position.cast::<f32>().expect("Failed to cast Position to f32");
         let front = front.cast::<f32>().expect("Failed to cast Front to f32");
         let mut ray = VoxelRay::new(position, position+front, 8);
+        let r_pos = ray.position;
+        let r_dir = ray.direction;
 
-        if let Some((position, face)) = ray.until(|b, _f| {
-            if let Some((block, _data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
-                // println!("{:?}", b);
-                // if !data.is_transparent(){ return true }
-                if block != 0  { return true }
+        if let Some((position, _face)) = ray.until(|b, f| {
+            if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
+                if block != 0{ //not air
+                    let mesh_id = data.get_mesh();
+                    if mesh_id != 0{ // not block
+                        let hitbox = self.registry.mesh_registry().by_id(mesh_id).expect("Couldn't retrieve mesh").get_hitbox();
+                        let pos_v = Vector3::new(b.x.trunc(), b.y.trunc(), b.z.trunc());
+                        // println!("Hitbox: {:?} Point: {:?}", Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v), (b - (f.cast::<f32>().expect("i8 to f32 failed")/100.)));
+                        let inf_ray = Ray3::new(r_pos, r_dir);
+                        let intersects = inf_ray.intersects(&Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v));
+                        if intersects{
+                            return true
+                        }else{
+                            return false
+                        }
+                    }
+                    return true;
+                }
             }
             false
         }){
-            use crate::engine::mesh::MeshData;
-            use crate::game::terrain::block::Direction;
-            let mut selected = MeshData::new();
-            let face = face.cast::<f32>().expect("Couldn't cast from i8 to f32");
-            let direction = Direction::from(face);
-            selected.add_face(position.cast::<f32>().expect("oh no"), direction, [0, 0]);
-            let mesh = selected.build(self.context.get_display());
+            if let Some((_block, data)) = self.terrain_manager.block_at(position.x, position.y, position.z){
+                // let mut selected = MeshData::new();
+                let hitbox = self.registry.mesh_registry().by_id(data.get_mesh()).expect("Couldn't retrieve mesh").get_hitbox();
+                let position = Vector3::new(position.x.trunc(), position.y.trunc(), position.z.trunc());
+                let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.))
+                .into();
+                let uniforms = uniform! {
+                    m: model,
+                    v: view,
+                    p: perspective,
+                    t: texture
+                };
+                self.context.draw_hitbox(hitbox.min + position, hitbox.max + position, [0., 0., 0., 1.], &uniforms);
 
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(face/1000.)//[position.x as f32, position.y as f32, position.z as f32].into())
-            .into();
-            let uniforms = uniform! {
-                m: model,
-                v: view,
-                p: perspective,
-                t: texture
-            };
-            self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
+            }
         }
 
         let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
@@ -356,9 +370,9 @@ impl Game {
 
         let start = (position+front).cast::<f32>().expect("nono");
         let end = (position+front*8.).cast::<f32>().expect("no2");
-        self.context.draw_line(start, end + Vector3::new(1., 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
-        self.context.draw_line(start, end + Vector3::new(0., 1., 0.), [0., 1., 0., 1.], &uniforms); // y - green
-        self.context.draw_line(start, end + Vector3::new(0., 0., 1.), [0., 0., 1., 1.], &uniforms); // z - blue
+        self.context.draw_line(start, end + Vector3::new(0.5, 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
+        self.context.draw_line(start, end + Vector3::new(0., 0.5, 0.), [0., 1., 0., 1.], &uniforms); // y - green
+        self.context.draw_line(start, end + Vector3::new(0., 0., 0.5), [0., 0., 1., 1.], &uniforms); // z - blue
 
         // self.context.draw_ui();
         self.context.finish_frame();

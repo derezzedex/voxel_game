@@ -1,7 +1,7 @@
 pub mod block;
 pub mod mesh;
 pub use block::{BlockRegistry, BlockDataBuilder, Direction};
-pub use mesh::{MeshRegistry, MeshData};
+pub use mesh::{MeshRegistry, MeshData, Hitbox, Point3};
 use crate::engine::Vertex;
 
 /// ### Registry
@@ -26,7 +26,7 @@ impl Registry{
 
     // TODO: Don't hardcode the setup of the registries
     pub fn setup(&mut self){
-        let block = MeshData::new();
+        let block = MeshData::new(vec![], vec![], Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)));
         self.meshes.add("block", block);
 
         let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
@@ -62,53 +62,53 @@ impl Registry{
             .build();
         self.blocks.add("glass", glass);
 
-        let mut half_block = MeshData::new();
-        half_block.add(
-        vec![
-            // top (0, 0, 1)
-            Vertex::new([-0.5, -0.5,  0.5], [0., 0.], [1, 0]),
-            Vertex::new([ 0.5, -0.5,  0.5], [1., 0.], [1, 0]),
-            Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
-            Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
-            // bottom (0, 0,5 -005
-            Vertex::new([-0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-            Vertex::new([ 0.5,  0.,  -0.5], [0., 0.], [1, 0]),
-            Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
-            Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
-            // right (1, 00 5005
-            Vertex::new([ 0.5, -0.5, -0.5], [0., 0.], [1, 0]),
-            Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-            Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
-            Vertex::new([ 0.5, -0.5,  0.5], [0., 1.], [1, 0]),
-            // left (-1, 00 5005
-            Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
-            Vertex::new([-0.5,  0.,   0.5], [0., 0.], [1, 0]),
-            Vertex::new([-0.5,  0.,  -0.5], [0., 1.], [1, 0]),
-            Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
-            // front (0, 10 5005
-            Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-            Vertex::new([-0.5,  0.,  -0.5], [0., 0.], [1, 0]),
-            Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
-            Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
-            // back (0, -10 5005
-            Vertex::new([ 0.5, -0.5,  0.5], [0., 0.], [1, 0]),
-            Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
-            Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
-            Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
-        ],
-        vec![
-            //  0,  1,  2,  2,  3,  0, // top
-            //  4,  5,  6,  6,  7,  4, // bottom
-            //  8,  9, 10, 10, 11,  8, // right
-            // 12, 13, 14, 14, 15, 12, // left
-            // 16, 17, 18, 18, 19, 16, // front
-            // 20, 21, 22, 22, 23, 20, // back
-            20, 23, 22, 22, 21, 20, 16, 19, 18, 18, 17, 16, 12, 15, 14, 14, 13, 12, 8, 11, 10, 10, 9, 8, 4, 7, 6, 6, 5, 4, 0, 3, 2, 2, 1, 0
-        ]
+        let half_block = MeshData::new(
+            vec![
+                // top (0, 0, 1)
+                Vertex::new([-0.5, -0.5,  0.5], [0., 0.], [1, 0]),
+                Vertex::new([ 0.5, -0.5,  0.5], [1., 0.], [1, 0]),
+                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
+                Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
+                // bottom (0, 0,5 -005
+                Vertex::new([-0.5,  0.,  -0.5], [1., 0.], [1, 0]),
+                Vertex::new([ 0.5,  0.,  -0.5], [0., 0.], [1, 0]),
+                Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
+                Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
+                // right (1, 00 5005
+                Vertex::new([ 0.5, -0.5, -0.5], [0., 0.], [1, 0]),
+                Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
+                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
+                Vertex::new([ 0.5, -0.5,  0.5], [0., 1.], [1, 0]),
+                // left (-1, 00 5005
+                Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
+                Vertex::new([-0.5,  0.,   0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5,  0.,  -0.5], [0., 1.], [1, 0]),
+                Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
+                // front (0, 10 5005
+                Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
+                Vertex::new([-0.5,  0.,  -0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
+                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
+                // back (0, -10 5005
+                Vertex::new([ 0.5, -0.5,  0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
+                Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
+                Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
+            ],
+            vec![
+                20, 23, 22, 22, 21, 20,
+                16, 19, 18, 18, 17, 16,
+                12, 15, 14, 14, 13, 12,
+                8, 11, 10, 10, 9, 8,
+                4, 7, 6, 6, 5, 4,
+                0, 3, 2, 2, 1, 0
+            ],
+            Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0., 0.5))
         );
-        self.meshes.add("half_block", half_block);
+        let half_block_id = self.meshes.add("half_block", half_block);
 
         let slab = BlockDataBuilder::default()
+            .mesh(half_block_id)
             .all_faces([0, 14])
             .breakable(false)
             .transparent(true)

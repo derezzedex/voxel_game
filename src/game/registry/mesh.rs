@@ -1,5 +1,45 @@
-pub use crate::engine::mesh::MeshData;
+use crate::engine::Vertex;
+pub use cgmath::Point3;
+use crate::engine::mesh;
 use dashmap::DashMap;
+
+//TODO: Use AABB3 from collision
+pub struct Hitbox{
+    pub min: Point3<f32>,
+    pub max: Point3<f32>
+}
+
+impl Hitbox{
+    pub fn new(min: Point3<f32>, max: Point3<f32>) -> Self{
+        Self{
+            min,
+            max
+        }
+    }
+}
+
+//TODO: Add Option<Aabb3> to mesh::MeshData instead of wrapper
+pub struct MeshData{
+    mesh: mesh::MeshData,
+    hitbox: Hitbox,
+}
+
+impl MeshData{
+    pub fn new(v: Vec<Vertex>, i: Vec<u32>, hitbox: Hitbox) -> Self{
+        Self{
+            mesh: mesh::MeshData::raw(v, i),
+            hitbox
+        }
+    }
+
+    pub fn get_mesh(&self) -> &mesh::MeshData{
+        &self.mesh
+    }
+
+    pub fn get_hitbox(&self) -> &Hitbox{
+        &self.hitbox
+    }
+}
 
 pub struct MeshRegistry{
     ids: DashMap<String, usize>,
@@ -18,10 +58,11 @@ impl MeshRegistry{
         }
     }
 
-    pub fn add(&mut self, name: &str, data: MeshData){
+    pub fn add(&mut self, name: &str, data: MeshData) -> usize{
         self.meshes.push(data);
         let id = self.meshes.len() - 1;
         self.ids.insert(String::from(name), id);
+        id
     }
 
     pub fn id_of(&self, name: &str) -> Option<usize>{

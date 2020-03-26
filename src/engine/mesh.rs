@@ -20,6 +20,13 @@ impl MeshData{
         }
     }
 
+    pub fn raw(vertices: Vec<Vertex>, indices: Vec<u32>) -> Self{
+        Self{
+            vertices,
+            indices
+        }
+    }
+
     pub fn add(&mut self, vertices: Vec<Vertex>, mut indices: Vec<u32>){
         let index_count = self.vertices.len() as u32;
 
@@ -105,34 +112,38 @@ impl Mesh{
 
  #[derive(Clone)]
  pub struct DebugMeshData{
-     pub vertices: Vec<DebugVertex>
+     pub vertices: Vec<DebugVertex>,
+     pub indices: Vec<u32>,
  }
 
  impl DebugMeshData{
      pub fn new() -> Self{
          Self{
              vertices: Vec::new(),
+             indices: Vec::new(),
          }
      }
 
-     pub fn add(&mut self, vertices: Vec<DebugVertex>){
+     pub fn add(&mut self, vertices: Vec<DebugVertex>, indices: Vec<u32>){
          self.vertices.extend_from_slice(&vertices);
+         self.indices.extend_from_slice(&indices);
      }
 
-     pub fn build(&self, display: &glium::Display, primitive: Option<glium::index::PrimitiveType>) -> DebugMesh{
+     pub fn build(&self, display: &glium::Display, primitive: glium::index::PrimitiveType) -> DebugMesh{
          let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..]).expect("Couldn't create VB");
-         let ib = glium::index::NoIndices(primitive.unwrap_or(glium::index::PrimitiveType::LinesList));
+         let ib = glium::IndexBuffer::new(display, primitive, &self.indices[..]).expect("Couldn't create IB");
 
          DebugMesh{
              vb,
              ib
          }
+
      }
  }
 
  pub struct DebugMesh{
      vb: glium::vertex::VertexBuffer<DebugVertex>,
-     ib: glium::index::NoIndices
+     ib: glium::index::IndexBuffer<u32>
  }
 
  impl DebugMesh{
@@ -140,7 +151,7 @@ impl Mesh{
          &self.vb
      }
 
-     pub fn get_ib(&self) -> &glium::index::NoIndices{
+     pub fn get_ib(&self) -> &glium::index::IndexBuffer<u32>{
          &self.ib
      }
   }
