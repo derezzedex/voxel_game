@@ -1,3 +1,4 @@
+use crate::game::terrain::manager::ChunkMeshMap;
 use crate::engine::renderer::Context;
 use crate::game::ecs::ECSManager;
 use crate::game::registry::Registry;
@@ -179,7 +180,7 @@ impl Game {
                             }){
                                 let replacer = if *button == glium::glutin::MouseButton::Right{
                                     position += face.cast::<f32>().expect("Couldn't cast f64 to f32");
-                                    2
+                                    self.terrain_manager.get_registry().block_registry().id_of("water").expect("couldn't grab water id")
                                 }else if *button == glium::glutin::MouseButton::Left{
                                     0
                                 }else { 0 };
@@ -292,9 +293,20 @@ impl Game {
         let frustum = Frustum::from_matrix4(projection.into()).expect("No frustum!");
         let view: [[f32; 4]; 4] = view.into();
         let perspective: [[f32; 4]; 4] = perspective.into();
+        let position = self.camera.get_position();
 
-        self.terrain_manager.mesh_chunks(self.context.get_display());
-        for mesh_ref in self.terrain_manager.get_meshes().iter(){
+        self.terrain_manager.mesh_chunks(self.context.get_display(), self.timer.get_timer());
+        let mut meshes = self.terrain_manager.get_meshes().iter().collect::<Vec<_>>();
+        //TODO: Benchmark this function and compare with render distance
+        meshes.sort_by(|c1, c2| {
+            let pos1 = c1.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
+            let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt();
+
+            let pos2 = c2.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
+            let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
+            a.partial_cmp(&b).expect("error sorting chunks").reverse()
+        });
+        for mesh_ref in meshes{
             let (position, mesh) = mesh_ref.pair();
             let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
             let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
@@ -314,7 +326,6 @@ impl Game {
             self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
         }
 
-        let position = self.camera.get_position();
         let front = self.camera.get_front();
         let position = position.cast::<f32>().expect("Failed to cast Position to f32");
         let front = front.cast::<f32>().expect("Failed to cast Front to f32");

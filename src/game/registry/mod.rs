@@ -55,12 +55,18 @@ impl Registry{
         self.blocks.add("bedrock", bedrock);
 
         let glass = BlockDataBuilder::default()
-            .mesh(1)
             .all_faces([0, 14])
             .breakable(false)
             .transparent(true)
             .build();
         self.blocks.add("glass", glass);
+
+        let water = BlockDataBuilder::default()
+            .all_faces([0, 13])
+            .breakable(false)
+            .transparent(true)
+            .build();
+        self.blocks.add("water", water);
 
         let half_block = MeshData::new(
             vec![

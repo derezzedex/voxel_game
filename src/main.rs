@@ -7,7 +7,7 @@ extern crate rayon;
 mod engine;
 mod game;
 
-use crate::game::game::Game;
+use crate::game::Game;
 
 fn main() {
     let mut game = Game::new("Voxel Game");

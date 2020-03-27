@@ -41,4 +41,12 @@ impl Clock{
     pub fn update(&mut self){
         self.accumulator -= self.max_ups;
     }
+
+    pub fn elapsed(&self) -> time::Duration{
+        self.previous.elapsed()
+    }
+
+    pub fn get_timer(&self) -> &time::Instant{
+        &self.previous
+    }
 }

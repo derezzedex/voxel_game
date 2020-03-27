@@ -21,7 +21,7 @@ pub fn range_map(s: f64, a: [f64; 2], b: [f64; 2]) -> f64 {
 }
 
 
-pub const LOAD_DISTANCE: isize = 2;
+pub const LOAD_DISTANCE: isize = 4;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
@@ -68,6 +68,10 @@ impl TerrainManager {
         }
     }
 
+    pub fn get_registry(&self) -> &Registry{
+        &self.registry
+    }
+
     pub fn setup(&mut self, _display: &glium::Display) {
         for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
             for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
@@ -96,8 +100,6 @@ impl TerrainManager {
     }
 
     pub fn dirty_chunk(&mut self, position: ChunkPosition){
-        // self.meshes.remove(&position);
-        // self.visible_chunks.remove(&position);
         self.send_to_mesh(&position);
         let neighbors = [
             Point3::new(position.x + 1, position.y, position.z),
@@ -112,7 +114,7 @@ impl TerrainManager {
         }
     }
 
-    pub fn mesh_chunks(&mut self, display: &glium::Display) {
+    pub fn mesh_chunks(&mut self, display: &glium::Display, timer: &std::time::Instant) {
         //temp
         let mut remove_list = Vec::new();
         for c_ref in self.chunks.clone().iter(){
@@ -136,9 +138,14 @@ impl TerrainManager {
             self.chunks.remove(&chunk);
         }
 
-        if let Ok((position, data)) = self.mesher.receive(){
-            let mesh = data.build(display);
-            self.meshes.insert(position, mesh);
+        let min_fps = 60; // chunk meshing will not get the fps lower than this number
+        while timer.elapsed() < std::time::Duration::from_millis(1000/min_fps){
+            if let Ok((position, data)) = self.mesher.receive(){
+                let mesh = data.build(display);
+                self.meshes.insert(position, mesh);
+            }else{
+                break;
+            }
         }
     }
 
@@ -229,7 +236,8 @@ impl TerrainManager {
             let glass = registry.block_registry().id_of("glass").unwrap_or(1);
             let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
             let stone = registry.block_registry().id_of("stone").unwrap_or(1);
-            let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
+            // let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
+            let water = registry.block_registry().id_of("water").unwrap_or(1);
 
             let frequency = 0.005f64;
 
@@ -250,8 +258,8 @@ impl TerrainManager {
 
                         if ny == -height {
                             chunk.set_block(x, y, z, grass);
-                        } else if ny == -(CHUNKSIZE as f64) {
-                            chunk.set_block(x, y, z, bedrock);
+                        } else if ny <= -(CHUNKSIZE as f64) && ny > -height{
+                            chunk.set_block(x, y, z, water);
                         } else if ny < -height - 3. {
                             chunk.set_block(x, y, z, stone);
                         } else if ny < -height {
@@ -276,7 +284,7 @@ impl TerrainManager {
                 .chunk_neighbors(position)
                 .iter()
                 .map(|n_ref| n_ref.as_ref().and_then(|inner| Some(Arc::clone(inner))))
-                .collect();
+                .collect::<Vec<_>>();
             let position = position.clone();
 
             self.threadpool.execute(move || {
@@ -296,13 +304,13 @@ impl TerrainManager {
                                     b_mesh if b_mesh == block_mesh => {
                                         for direction in &[Direction::East, Direction::West, Direction::Top, Direction::Bottom, Direction::North, Direction::South]{
                                             let facing = Vector3::new(x as isize, y as isize, z as isize) + direction.normal();
-                                            let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone());
+                                            let facing = chunk.check_block(facing.x, facing.y, facing.z, neighbors.clone()); //TODO: Fix this clone
                                             let facing_data = registry.block_registry().by_id(facing).expect("Unknown block in chunk");
                                             if facing_data.is_transparent(){
+                                                if facing == block { continue }
                                                 let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
                                                 mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
                                             }
-
                                         }
                                     },
                                     _ => {

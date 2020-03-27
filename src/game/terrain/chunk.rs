@@ -42,8 +42,7 @@ impl Chunk{
                 Some(chunk) => return chunk.get_block(0, y as usize, z as usize),
                 None => return 0,
             }
-        }
-        if x < 0{
+        }else if x < 0{
             match &neighbors[1]{
                 Some(chunk) => return chunk.get_block(CHUNKSIZE-1, y as usize, z as usize),
                 None => return 0,
@@ -55,8 +54,7 @@ impl Chunk{
                 Some(chunk) => return chunk.get_block(x as usize, 0, z as usize),
                 None => return 0,
             }
-        }
-        if y < 0{
+        }else if y < 0{
             match &neighbors[3]{
                 Some(chunk) => return chunk.get_block(x as usize, CHUNKSIZE-1, z as usize),
                 None => return 0,
@@ -68,8 +66,7 @@ impl Chunk{
                 Some(chunk) => return chunk.get_block(x as usize, y as usize, 0),
                 None => return 0,
             }
-        }
-        if z < 0{
+        }else if z < 0{
             match &neighbors[5]{
                 Some(chunk) => return chunk.get_block(x as usize, y as usize, CHUNKSIZE-1),
                 None => return 0,
