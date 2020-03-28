@@ -6,7 +6,7 @@ use crate::engine::Vertex;
 
 /// ### Registry
 /// Important part of the game, maintains all custom aspects in one place.
-/// Examples: Types of blocks, meshes, metadata, etc.
+/// Examples: Types of blocks, meshes, metadata in general.
 pub struct Registry{
     blocks: BlockRegistry,
     meshes: MeshRegistry,
@@ -24,7 +24,7 @@ impl Registry{
     }
 
 
-    // TODO: Don't hardcode the setup of the registries
+    // TODO: Make this an external/editable script
     pub fn setup(&mut self){
         let block = MeshData::new(vec![], vec![], Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)));
         self.meshes.add("block", block);
@@ -44,6 +44,9 @@ impl Registry{
 
         let dirt = BlockDataBuilder::default().all_faces([2, 15]).build();
         self.blocks.add("dirt", dirt);
+
+        let sand = BlockDataBuilder::default().all_faces([2, 14]).build();
+        self.blocks.add("sand", sand);
 
         let stone = BlockDataBuilder::default().all_faces([1, 15]).build();
         self.blocks.add("stone", stone);

@@ -25,7 +25,7 @@ pub const LOAD_DISTANCE: isize = 4;
 
 pub type ChunkRef<'a> = Ref<'a, ChunkPosition, Arc<Chunk>>;
 pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
-pub type ChunkMeshMap = DashMap<ChunkPosition, Mesh>;
+pub type ChunkMeshMap = DashMap<ChunkPosition, (Mesh, Option<Mesh>)>;
 pub type ChunkPositionSet = DashMap<ChunkPosition, ()>;
 pub struct TerrainManager {
     position: ChunkPosition,
@@ -45,7 +45,7 @@ impl TerrainManager {
         let meshes = ChunkMeshMap::default();
 
         let threadpool = ThreadPoolBuilder::new()
-        .num_threads(1)
+            .num_threads(1) // TODO: Measure performance difference on thread qtd change
             .name("TerrainManager".to_string())
             .build();
         let mesher = ChunkMesher::new();
@@ -73,14 +73,20 @@ impl TerrainManager {
     }
 
     pub fn setup(&mut self, _display: &glium::Display) {
+        println!("Generating {} initial chunks...", (LOAD_DISTANCE * 2 + 1).pow(3));
+        let timer = std::time::Instant::now();
         for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
             for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
                 for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
-                    self.generate_chunk(ChunkPosition::new(x, y, z));
+                    let position = ChunkPosition::new(x, y, z);
+                    let chunks = self.chunks.clone();
+                    let noise = self.noise.clone();
+                    let registry = self.registry.clone();
+                    TerrainManager::generate_chunk(position, chunks, noise, registry);
                 }
             }
         }
-        // self.generate_chunk(ChunkPosition::new(0, -1, 0));
+        println!("Generated {} in {:?}", self.chunks.len(), timer.elapsed());
     }
 
     pub fn update(&mut self, position: ChunkPosition) {
@@ -91,7 +97,7 @@ impl TerrainManager {
                     for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
                         let position = ChunkPosition::new(position.x + x, position.y + y, position.z + z);
                         if !self.chunks.contains_key(&position){
-                            self.generate_chunk(position);
+                            self.send_to_generate(position);
                         }
                     }
                 }
@@ -99,7 +105,7 @@ impl TerrainManager {
         }
     }
 
-    pub fn dirty_chunk(&mut self, position: ChunkPosition){
+    pub fn dirty_chunk(&mut self, position: &ChunkPosition){
         self.send_to_mesh(&position);
         let neighbors = [
             Point3::new(position.x + 1, position.y, position.z),
@@ -123,7 +129,8 @@ impl TerrainManager {
             && (position.y >= self.position.y - LOAD_DISTANCE && position.y <= self.position.y + LOAD_DISTANCE)
             && (position.z >= self.position.z - LOAD_DISTANCE && position.z <= self.position.z + LOAD_DISTANCE){
                 if !self.meshes.contains_key(position) && !self.visible_chunks.contains_key(position){
-                    self.send_to_mesh(position);
+                    // self.send_to_mesh(position);
+                    self.dirty_chunk(position);
                     self.visible_chunks.insert(*position, ());
                 }
             }else{
@@ -140,9 +147,12 @@ impl TerrainManager {
 
         let min_fps = 60; // chunk meshing will not get the fps lower than this number
         while timer.elapsed() < std::time::Duration::from_millis(1000/min_fps){
-            if let Ok((position, data)) = self.mesher.receive(){
-                let mesh = data.build(display);
-                self.meshes.insert(position, mesh);
+            if let Ok((position, opaque, transparent)) = self.mesher.receive(){
+                let opaque_mesh = opaque.build(display);
+                let transparent_mesh = if let Some(mesh) = transparent{
+                    Some(mesh.build(display))
+                }else{ None };
+                self.meshes.insert(position, (opaque_mesh, transparent_mesh));
             }else{
                 break;
             }
@@ -183,23 +193,23 @@ impl TerrainManager {
 
         if let Some(block) = block{
             if block.x + 1 > CHUNKSIZE{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x + 1, c_pos.y, c_pos.z));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x + 1, c_pos.y, c_pos.z));
             }else if block.x as isize - 1 < 0{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x - 1, c_pos.y, c_pos.z));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x - 1, c_pos.y, c_pos.z));
             }
 
             if block.y + 1 > CHUNKSIZE{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y + 1, c_pos.z));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x, c_pos.y + 1, c_pos.z));
             }else if block.y as isize - 1 < 0{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y - 1, c_pos.z));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x, c_pos.y - 1, c_pos.z));
             }
 
             if block.z + 1 > CHUNKSIZE{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z + 1));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z + 1));
             }else if block.z as isize - 1 < 0{
-                self.dirty_chunk(ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z - 1));
+                self.dirty_chunk(&ChunkPosition::new(c_pos.x, c_pos.y, c_pos.z - 1));
             }
-            self.dirty_chunk(c_pos);
+            self.dirty_chunk(&c_pos);
         }
     }
 
@@ -226,52 +236,55 @@ impl TerrainManager {
         [east, west, top, bottom, north, south]
     }
 
-    fn generate_chunk(&mut self, position: ChunkPosition) {
+    fn send_to_generate(&mut self, position: ChunkPosition){
         let chunks = self.chunks.clone();
         let noise = self.noise.clone();
         let registry = self.registry.clone();
-        self.threadpool.execute(move || {
-            let mut chunk = Chunk::new(0);
-            let grass = registry.block_registry().id_of("grass").unwrap_or(1);
-            let glass = registry.block_registry().id_of("glass").unwrap_or(1);
-            let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
-            let stone = registry.block_registry().id_of("stone").unwrap_or(1);
-            // let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
-            let water = registry.block_registry().id_of("water").unwrap_or(1);
+        self.threadpool.execute(move || TerrainManager::generate_chunk(position, chunks, noise, registry));
+    }
 
-            let frequency = 0.005f64;
+    fn generate_chunk(position: ChunkPosition, chunks: Arc<ChunkMap>, noise: Arc<Fbm>, registry: Arc<Registry>) {
+        let mut chunk = Chunk::new(0);
+        let grass = registry.block_registry().id_of("grass").unwrap_or(1);
+        let sand = registry.block_registry().id_of("sand").unwrap_or(1);
+        let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
+        let stone = registry.block_registry().id_of("stone").unwrap_or(1);
+        // let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
+        let water = registry.block_registry().id_of("water").unwrap_or(1);
 
-            for z in 0..CHUNKSIZE {
-                for y in 0..CHUNKSIZE {
-                    for x in 0..CHUNKSIZE {
-                        let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
-                        let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
-                        let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
+        let frequency = 0.005f64;
 
-                        let elevation = 6. * noise.get([nx * frequency, nz * frequency]);
-                        let height = range_map(
-                            elevation,
-                            [-1., 1.],
-                            [0., CHUNKSIZE as f64],
-                        )
-                        .round();
+        for z in 0..CHUNKSIZE {
+            for y in 0..CHUNKSIZE {
+                for x in 0..CHUNKSIZE {
+                    let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
+                    let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
+                    let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
 
-                        if ny == -height {
-                            chunk.set_block(x, y, z, grass);
-                        } else if ny <= -(CHUNKSIZE as f64) && ny > -height{
-                            chunk.set_block(x, y, z, water);
-                        } else if ny < -height - 3. {
-                            chunk.set_block(x, y, z, stone);
-                        } else if ny < -height {
-                            chunk.set_block(x, y, z, dirt);
-                        }
+                    let elevation = 6. * noise.get([nx * frequency, nz * frequency]);
+                    let height = range_map(
+                        elevation,
+                        [-1., 1.],
+                        [0., CHUNKSIZE as f64],
+                    )
+                    .round();
+
+                    if ny <= -(CHUNKSIZE as f64) + 1. && ny < -height + 1.{
+                        chunk.set_block(x, y, z, sand);
+                    } else if ny == -height{
+                        chunk.set_block(x, y, z, grass);
+                    } else if ny <= -(CHUNKSIZE as f64) && ny >= -height{
+                        chunk.set_block(x, y, z, water);
+                    } else if ny < -height - 3. {
+                        chunk.set_block(x, y, z, stone);
+                    } else if ny < -height {
+                        chunk.set_block(x, y, z, dirt);
                     }
                 }
             }
+        }
 
-            chunk.set_block(0, 0, 0, glass);
-            chunks.insert(position, Arc::new(chunk));
-        });
+        chunks.insert(position, Arc::new(chunk));
     }
 
     fn send_to_mesh(&mut self, position: &ChunkPosition) {
@@ -288,7 +301,8 @@ impl TerrainManager {
             let position = position.clone();
 
             self.threadpool.execute(move || {
-                let mut mesh = MeshData::new();
+                let mut opaque_mesh = MeshData::new();
+                let mut transparent_mesh = MeshData::new();
                 let air = registry.block_registry().id_of("air").expect("Air missing in Registry!");
                 let block_mesh = registry.mesh_registry().id_of("block").expect("Block mesh missing in Registry!");
 
@@ -309,7 +323,11 @@ impl TerrainManager {
                                             if facing_data.is_transparent(){
                                                 if facing == block { continue }
                                                 let block = if let Some(block_data) = registry.block_registry().by_id(block as usize) { block_data.get_face(Direction::try_from(*direction).unwrap_or(Direction::East)) } else{ [0, 1] };
-                                                mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                                if b_data.is_transparent(){
+                                                    transparent_mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                                }else{
+                                                    opaque_mesh.add_face(Point3::new(x as f32, y as f32, z as f32), *direction, block);
+                                                }
                                             }
                                         }
                                     },
@@ -319,7 +337,12 @@ impl TerrainManager {
                                         for vertex in &mut custom_mesh.vertices{
                                             vertex.block = tex_coord;
                                         }
-                                        mesh.append(custom_mesh);
+
+                                        if b_data.is_transparent(){
+                                            transparent_mesh.append(custom_mesh);
+                                        }else{
+                                            opaque_mesh.append(custom_mesh);
+                                        }
                                     },
                                 }
                             }
@@ -327,9 +350,10 @@ impl TerrainManager {
                     }
                 }
 
-                if mesh.indices.len() != 0 {
+                if opaque_mesh.vertices.len() != 0 || transparent_mesh.vertices.len() != 0{
+                    let transparent_mesh = if transparent_mesh.vertices.len() != 0 { Some(transparent_mesh) } else { None };
                     sender
-                        .send((position, mesh))
+                        .send((position, opaque_mesh, transparent_mesh))
                         .expect("Couldn't send chunk to main thread!");
                 }
             });

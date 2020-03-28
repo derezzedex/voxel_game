@@ -3,7 +3,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use super::chunk::ChunkPosition;
 use crate::engine::mesh::MeshData;
 
-pub type MeshMessage = (ChunkPosition, MeshData);
+pub type MeshMessage = (ChunkPosition, MeshData, Option<MeshData>);
 pub struct ChunkMesher {
     sender: Sender<MeshMessage>,
     receiver: Receiver<MeshMessage>,
@@ -16,7 +16,7 @@ impl ChunkMesher {
         Self { sender, receiver }
     }
 
-    pub fn receive(&self) -> Result<(cgmath::Point3<isize>, MeshData), mpsc::TryRecvError>{
+    pub fn receive(&self) -> Result<MeshMessage, mpsc::TryRecvError>{
         self.receiver.try_recv()
     }
 

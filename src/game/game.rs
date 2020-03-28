@@ -183,7 +183,9 @@ impl Game {
                                     self.terrain_manager.get_registry().block_registry().id_of("water").expect("couldn't grab water id")
                                 }else if *button == glium::glutin::MouseButton::Left{
                                     0
-                                }else { 0 };
+                                }else {
+                                    self.terrain_manager.get_registry().block_registry().id_of("glass").expect("couldn't grab water id")
+                                };
                                 // let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
 
                                 self.terrain_manager.set_block(position.x, position.y, position.z, replacer);
@@ -300,13 +302,15 @@ impl Game {
         //TODO: Benchmark this function and compare with render distance
         meshes.sort_by(|c1, c2| {
             let pos1 = c1.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt();
+            // let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt(); //euclidean
+            let a = (pos1.x - position.x).abs() + (pos1.y - position.y).abs() + (pos1.z - position.z).abs(); //manhattan
 
             let pos2 = c2.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
-            a.partial_cmp(&b).expect("error sorting chunks").reverse()
+            // let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
+            let b = (pos2.x - position.x).abs() + (pos2.y - position.y).abs() + (pos2.z - position.z).abs(); //manhattan
+            a.partial_cmp(&b).expect("error sorting chunks").reverse()  // back to front
         });
-        for mesh_ref in meshes{
+        for mesh_ref in &meshes{
             let (position, mesh) = mesh_ref.pair();
             let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
             let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
@@ -322,8 +326,32 @@ impl Game {
                 p: perspective,
                 t: texture
             };
+            self.context.draw(mesh.0.get_vb(), mesh.0.get_ib(), &uniforms);
+            // if let Some(transparent) = &mesh.1{
+            //     self.context.draw_transparent(transparent.get_vb(), transparent.get_ib(), &uniforms);
+            // }
+        }
 
-            self.context.draw(mesh.get_vb(), mesh.get_ib(), &uniforms);
+        meshes.reverse();
+        for mesh_ref in meshes{
+            let (position, mesh) = mesh_ref.pair();
+            if let Some(transparent) = &mesh.1{
+                let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
+                let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
+                if frustum.contains(&aabb) == Relation::Out{
+                    continue;
+                }
+
+                let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
+                .into();
+                let uniforms = uniform! {
+                    m: model,
+                    v: view,
+                    p: perspective,
+                    t: texture
+                };
+                self.context.draw_transparent(transparent.get_vb(), transparent.get_ib(), &uniforms);
+            }
         }
 
         let front = self.camera.get_front();
@@ -379,13 +407,13 @@ impl Game {
             p: perspective
         };
 
-        let start = (position+front).cast::<f32>().expect("nono");
-        let end = (position+front*8.).cast::<f32>().expect("no2");
-        self.context.draw_line(start, end + Vector3::new(0.5, 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
-        self.context.draw_line(start, end + Vector3::new(0., 0.5, 0.), [0., 1., 0., 1.], &uniforms); // y - green
-        self.context.draw_line(start, end + Vector3::new(0., 0., 0.5), [0., 0., 1., 1.], &uniforms); // z - blue
+        // let start = (position+front).cast::<f32>().expect("nono");
+        // let end = (position+front*8.).cast::<f32>().expect("no2");
+        // self.context.draw_line(start, end + Vector3::new(0.5, 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
+        // self.context.draw_line(start, end + Vector3::new(0., 0.5, 0.), [0., 1., 0., 1.], &uniforms); // y - green
+        // self.context.draw_line(start, end + Vector3::new(0., 0., 0.5), [0., 0., 1., 1.], &uniforms); // z - blue
 
-        // self.context.draw_ui();
+        self.context.draw_ui();
         self.context.finish_frame();
 
     }

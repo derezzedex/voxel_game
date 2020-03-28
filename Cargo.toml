@@ -1,6 +1,6 @@
 [package]
 name = "voxel_game"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["derezzedex <richardsoncusto@gmail.com>"]
 description = "Simple voxel game"
 repository = "https://github.com/derezzedex/voxel_game"
@@ -12,7 +12,7 @@ readme = "README.md"
 glium = "0.22"
 cgmath = "*"
 collision = "0.20.1"
-image = "*"
+image = "^0.23.2"
 rayon = "*"
 specs = "*"
 specs-derive = "*"
@@ -21,3 +21,6 @@ uvth = "*"
 dashmap = "*"
 slice-deque = "*"
 num_enum = "*"
+
+[profile.release]
+lto = true

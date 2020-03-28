@@ -169,6 +169,30 @@ impl Context {
             .unwrap();
     }
 
+    pub fn draw_transparent<T: AsUniformValue, R: Uniforms>(
+        &mut self,
+        vb: &glium::VertexBuffer<Vertex>,
+        ib: &glium::IndexBuffer<u32>,
+        u: &glium::uniforms::UniformsStorage<T, R>,
+    ) {
+        let render_params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: false,
+                ..Default::default()
+            },
+            blend: glium::Blend::alpha_blending(),
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
+            ..Default::default()
+        };
+
+        self.frame
+            .as_mut()
+            .unwrap()
+            .draw(vb, ib, &self.chunk_program, u, &render_params)
+            .unwrap();
+    }
+
     pub fn draw_ui(&mut self){
         let mesh = self.ui_manager.get_mesh();
         let texture = self.ui_manager.get_sampled();
