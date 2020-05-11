@@ -1,19 +1,19 @@
-use crate::game::terrain::manager::ChunkMeshMap;
-use crate::engine::renderer::Context;
-use crate::game::ecs::ECSManager;
-use crate::game::registry::Registry;
-use crate::game::terrain::chunk::{ChunkPosition, CHUNKSIZE};
-use crate::game::terrain::manager::TerrainManager;
-use crate::engine::utils::camera::Camera;
-use crate::engine::utils::texture::TextureStorage;
-use crate::engine::utils::clock::*;
-use crate::engine::utils::raycast::VoxelRay;
+use crate::terrain::manager::LOAD_DISTANCE;
+use engine::renderer::Context;
+use crate::ecs::ECSManager;
+use crate::registry::Registry;
+use crate::terrain::chunk::{ChunkPosition, CHUNKSIZE};
+use crate::terrain::manager::TerrainManager;
+use engine::utils::camera::Camera;
+use engine::utils::texture::TextureStorage;
+use engine::utils::clock::*;
+use engine::utils::raycast::VoxelRay;
 
-use crate::game::ecs::components;
-use crate::game::ecs::systems::*;
+use crate::ecs::components;
+use crate::ecs::systems::*;
 use cgmath::{Point3, Vector3, Zero};
 use collision::{Frustum, Aabb3, Relation, Ray3};
-use collision::prelude::{Contains, Discrete};
+use collision::prelude::{Discrete};
 use specs::prelude::*;
 
 use std::path::Path;
@@ -71,7 +71,7 @@ impl Game {
         let mut registry = Registry::new();
         registry.setup();
         let registry = Arc::new(registry);
-        let terrain_manager = TerrainManager::new(&registry);
+        let terrain_manager = TerrainManager::new(&registry, 1);
 
         Self {
             context,
@@ -118,7 +118,14 @@ impl Game {
         }
 
 
-        self.terrain_manager.setup(self.context.get_display());
+        self.terrain_manager.setup_threaded();//self.context.get_display());
+        println!("Expecting: {:?}", (LOAD_DISTANCE as usize * 2 + 1).pow(3));
+        while self.terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) { }
+        // let mut received = 0;
+        // while received < (LOAD_DISTANCE * 2 + 1).pow(3){
+        //     if let Ok(_) = self.terrain_manager.mesher.receive() { received += 1; println!("Received: {:?}", received); }
+        // }
+        println!("Done: {:?}", self.terrain_manager.get_chunks().len());
     }
 
     pub fn update(&mut self) {
@@ -157,17 +164,17 @@ impl Game {
         let events = self.context.poll_events();
         for event in &events {
             match event {
-                glium::glutin::Event::DeviceEvent { event, .. } => match event {
-                    glium::glutin::DeviceEvent::MouseMotion { delta } => {
+                engine::glium::glutin::Event::DeviceEvent { event, .. } => match event {
+                    engine::glium::glutin::DeviceEvent::MouseMotion { delta } => {
                         self.camera.handle_mouse(delta.0, delta.1);
                         self.context.reset_mouse_position();
                     },
                     _ => (),
                 },
-                glium::glutin::Event::WindowEvent { event, .. } => match event {
-                    glium::glutin::WindowEvent::CloseRequested => self.running = false,
-                    glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        if *state == glium::glutin::ElementState::Released{
+                engine::glium::glutin::Event::WindowEvent { event, .. } => match event {
+                    engine::glium::glutin::WindowEvent::CloseRequested => self.running = false,
+                    engine::glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
+                        if *state == engine::glium::glutin::ElementState::Released{
                             let position = self.camera.get_position().cast::<f32>().expect("f64 to f32 failed");
                             let front = self.camera.get_front().cast::<f32>().expect("f64 to f32 failed");
                             let mut ray = VoxelRay::new(position, position+front, 8);
@@ -178,10 +185,10 @@ impl Game {
                                 }
                                 false
                             }){
-                                let replacer = if *button == glium::glutin::MouseButton::Right{
+                                let replacer = if *button == engine::glium::glutin::MouseButton::Right{
                                     position += face.cast::<f32>().expect("Couldn't cast f64 to f32");
                                     self.terrain_manager.get_registry().block_registry().id_of("water").expect("couldn't grab water id")
-                                }else if *button == glium::glutin::MouseButton::Left{
+                                }else if *button == engine::glium::glutin::MouseButton::Left{
                                     0
                                 }else {
                                     self.terrain_manager.get_registry().block_registry().id_of("glass").expect("couldn't grab water id")
@@ -192,58 +199,58 @@ impl Game {
                             }
                         }
                     },
-                    glium::glutin::WindowEvent::KeyboardInput { input, .. } => {
+                    engine::glium::glutin::WindowEvent::KeyboardInput { input, .. } => {
                         let pressed = match input.state {
-                            glium::glutin::ElementState::Pressed => true,
+                            engine::glium::glutin::ElementState::Pressed => true,
                             _ => false,
                         };
                         match input.virtual_keycode {
                             Some(key) => {
                                 match key {
-                                    glium::glutin::VirtualKeyCode::P => {
+                                    engine::glium::glutin::VirtualKeyCode::P => {
                                         if pressed {
                                             self.context.grab_mouse();
                                         }
                                     }
-                                    glium::glutin::VirtualKeyCode::Escape => {
+                                    engine::glium::glutin::VirtualKeyCode::Escape => {
                                         self.running = false;
                                     }
-                                    glium::glutin::VirtualKeyCode::W => {
+                                    engine::glium::glutin::VirtualKeyCode::W => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.forward = pressed;
                                     }
-                                    glium::glutin::VirtualKeyCode::S => {
+                                    engine::glium::glutin::VirtualKeyCode::S => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.backward = pressed;
                                     }
-                                    glium::glutin::VirtualKeyCode::A => {
+                                    engine::glium::glutin::VirtualKeyCode::A => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.left = pressed;
                                     }
-                                    glium::glutin::VirtualKeyCode::D => {
+                                    engine::glium::glutin::VirtualKeyCode::D => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.right = pressed;
                                     }
-                                    glium::glutin::VirtualKeyCode::Space => {
+                                    engine::glium::glutin::VirtualKeyCode::Space => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.up = pressed;
                                     }
-                                    glium::glutin::VirtualKeyCode::LShift => {
+                                    engine::glium::glutin::VirtualKeyCode::LShift => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
                                         let mut controller = controller_storage
                                             .get_mut(self.player)
@@ -272,8 +279,8 @@ impl Game {
             .texture_storage
             .get_array()
             .sampled()
-            .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
-            .wrap_function(glium::uniforms::SamplerWrapFunction::Repeat);
+            .magnify_filter(engine::glium::uniforms::MagnifySamplerFilter::Nearest)
+            .wrap_function(engine::glium::uniforms::SamplerWrapFunction::Repeat);
         let perspective = cgmath::perspective(
             cgmath::Rad::from(cgmath::Deg(90f64)),
             self.context.get_aspect_ratio(),
@@ -302,14 +309,13 @@ impl Game {
         //TODO: Benchmark this function and compare with render distance
         meshes.sort_by(|c1, c2| {
             let pos1 = c1.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            // let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt(); //euclidean
-            let a = (pos1.x - position.x).abs() + (pos1.y - position.y).abs() + (pos1.z - position.z).abs(); //manhattan
+            let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt(); //euclidean
 
             let pos2 = c2.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            // let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
-            let b = (pos2.x - position.x).abs() + (pos2.y - position.y).abs() + (pos2.z - position.z).abs(); //manhattan
-            a.partial_cmp(&b).expect("error sorting chunks").reverse()  // back to front
+            let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
+            a.partial_cmp(&b).expect("error sorting chunks")  // nearest to farthest
         });
+        let mut inside_frustum = Vec::new();
         for mesh_ref in &meshes{
             let (position, mesh) = mesh_ref.pair();
             let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
@@ -317,40 +323,46 @@ impl Game {
             if frustum.contains(&aabb) == Relation::Out{
                 continue;
             }
+            inside_frustum.push(position.clone());
 
             let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
             .into();
-            let uniforms = uniform! {
+            let uniforms =  engine::glium::uniform! {
                 m: model,
                 v: view,
                 p: perspective,
                 t: texture
             };
             self.context.draw(mesh.0.get_vb(), mesh.0.get_ib(), &uniforms);
-            // if let Some(transparent) = &mesh.1{
-            //     self.context.draw_transparent(transparent.get_vb(), transparent.get_ib(), &uniforms);
-            // }
         }
 
-        meshes.reverse();
-        for mesh_ref in meshes{
+        meshes.reverse(); // farthest to nearest
+        for mesh_ref in &meshes{ //draw transparent
             let (position, mesh) = mesh_ref.pair();
-            if let Some(transparent) = &mesh.1{
-                let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
-                let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
-                if frustum.contains(&aabb) == Relation::Out{
-                    continue;
-                }
+            if inside_frustum.contains(&position){
+                if let Some(transparent) = &mesh.1{
+                    let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
+                    let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
+                    .into();
+                    let uniforms =  engine::glium::uniform! {
+                        m: model,
+                        v: view,
+                        p: perspective,
+                        t: texture
+                    };
 
-                let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
-                .into();
-                let uniforms = uniform! {
-                    m: model,
-                    v: view,
-                    p: perspective,
-                    t: texture
-                };
-                self.context.draw_transparent(transparent.get_vb(), transparent.get_ib(), &uniforms);
+                    let render_params = engine::glium::DrawParameters {
+                        depth: engine::glium::Depth {
+                            test: engine::glium::DepthTest::IfLessOrEqual,
+                            write: true,
+                            ..Default::default()
+                        },
+                        blend: engine::glium::Blend::alpha_blending(),
+                        backface_culling: engine::glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
+                        ..Default::default()
+                    };
+                    self.context.draw_with_params(transparent.get_vb(), transparent.get_ib(), &uniforms, render_params);
+                }
             }
         }
 
@@ -361,7 +373,7 @@ impl Game {
         let r_pos = ray.position;
         let r_dir = ray.direction;
 
-        if let Some((position, _face)) = ray.until(|b, f| {
+        if let Some((position, _face)) = ray.until(|b, _f| {
             if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
                 if block != 0{ //not air
                     let mesh_id = data.get_mesh();
@@ -388,7 +400,7 @@ impl Game {
                 let position = Vector3::new(position.x.trunc(), position.y.trunc(), position.z.trunc());
                 let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.))
                 .into();
-                let uniforms = uniform! {
+                let uniforms = engine::glium::uniform! {
                     m: model,
                     v: view,
                     p: perspective,
@@ -399,14 +411,13 @@ impl Game {
             }
         }
 
-        let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
-        .into();
-        let uniforms = uniform! {
-            m: model,
-            v: view,
-            p: perspective
-        };
-
+        // let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
+        // .into();
+        // let uniforms = uniform! {
+        //     m: model,
+        //     v: view,
+        //     p: perspective
+        // };
         // let start = (position+front).cast::<f32>().expect("nono");
         // let end = (position+front*8.).cast::<f32>().expect("no2");
         // self.context.draw_line(start, end + Vector3::new(0.5, 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red

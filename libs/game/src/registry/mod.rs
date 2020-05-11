@@ -2,7 +2,7 @@ pub mod block;
 pub mod mesh;
 pub use block::{BlockRegistry, BlockDataBuilder, Direction};
 pub use mesh::{MeshRegistry, MeshData, Hitbox, Point3};
-use crate::engine::Vertex;
+use engine::Vertex;
 
 /// ### Registry
 /// Important part of the game, maintains all custom aspects in one place.
@@ -26,7 +26,7 @@ impl Registry{
 
     // TODO: Make this an external/editable script
     pub fn setup(&mut self){
-        let block = MeshData::new(vec![], vec![], Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)));
+        let block = MeshData::new(vec![], vec![], Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)), false);
         self.meshes.add("block", block);
 
         let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
@@ -112,7 +112,8 @@ impl Registry{
                 4, 7, 6, 6, 5, 4,
                 0, 3, 2, 2, 1, 0
             ],
-            Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0., 0.5))
+            Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0., 0.5)),
+            false
         );
         let half_block_id = self.meshes.add("half_block", half_block);
 
@@ -123,6 +124,40 @@ impl Registry{
             .transparent(true)
             .build();
         self.blocks.add("slab", slab);
+
+        let cross_mesh = MeshData::new( // used in vegetation and similar blocks, looks like and X when viewed from above
+            vec![
+                Vertex::new([-0.3, -0.5, -0.3], [0., 0.], [1, 0]), //left-behind-bottom
+                Vertex::new([-0.3,  0.3, -0.3], [0., 1.], [1, 0]), //left-behind-top
+                Vertex::new([ 0.3, -0.5,  0.3], [1., 0.], [1, 0]), //right-front-bottom
+                Vertex::new([ 0.3,  0.3,  0.3], [1., 1.], [1, 0]), //right-front-top
+
+                Vertex::new([-0.3, -0.5,  0.3], [0., 0.], [1, 0]), //left-front-bottom
+                Vertex::new([-0.3,  0.3,  0.3], [0., 1.], [1, 0]), //left-front-top
+                Vertex::new([ 0.3, -0.5, -0.3], [1., 0.], [1, 0]), //right-behind-bottom
+                Vertex::new([ 0.3,  0.3, -0.3], [1., 1.], [1, 0]), //right-behind-top
+            ],
+            vec![
+                2, 3, 1, 1, 0, 2,
+                2, 0, 1, 1, 3, 2,
+                6, 7, 5, 5, 4, 6,
+                6, 4, 5, 5, 7, 6
+                //2, 3, 1, 1, 0, 2
+                // 5, 4, 6, 6, 5, 7,
+            ],
+            Hitbox::new(Point3::new(-0.3, -0.5, -0.3), Point3::new(0.3, 0.1, 0.3)),
+            true
+        );
+        let cross_mesh_id = self.meshes.add("cross_mesh", cross_mesh);
+
+        let grassy = BlockDataBuilder::default()
+            .mesh(cross_mesh_id)
+            .all_faces([2, 13])
+            .breakable(false)
+            .transparent(true)
+            .build();
+
+        self.blocks.add("grassy", grassy);
     }
 
     pub fn block_registry(&self) -> &BlockRegistry{

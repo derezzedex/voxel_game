@@ -1,0 +1,34 @@
+[package]
+name = "game"
+version = "0.1.2"
+authors = ["derezzedex <richardsoncusto@gmail.com>"]
+edition = "2018"
+
+[dev-dependencies]
+criterion = "0.3"
+num_cpus = "*"
+
+[[bench]]
+name = "chunk"
+harness = false
+
+[[bench]]
+name = "terrain"
+harness = false
+
+[[bench]]
+name = "terrain_multithread"
+harness = false
+
+[dependencies]
+engine = { path = "../engine" }
+cgmath = "*"
+image = "^0.23.2"
+rayon = "*"
+collision = "0.20.1"
+specs = "*"
+specs-derive = "*"
+noise = "*"
+uvth = "*"
+dashmap = "*"
+slice-deque = "*"

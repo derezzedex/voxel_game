@@ -1,10 +1,10 @@
-use crate::game::terrain::block::BlockData;
+use super::block::BlockData;
 use super::chunk::CHUNKSIZE;
 use super::chunk::{Chunk, ChunkPosition};
-use super::block::Direction;
-use crate::engine::mesh::{Mesh, MeshData};
-use crate::game::registry::Registry;
-use crate::game::terrain::chunk::FromWorld;
+use engine::Direction;
+use engine::mesh::{Mesh, MeshData};
+use crate::registry::Registry;
+use super::chunk::FromWorld;
 use super::mesher::*;
 
 use cgmath::{Point3, Vector3};
@@ -28,24 +28,24 @@ pub type ChunkMap = DashMap<ChunkPosition, Arc<Chunk>>;
 pub type ChunkMeshMap = DashMap<ChunkPosition, (Mesh, Option<Mesh>)>;
 pub type ChunkPositionSet = DashMap<ChunkPosition, ()>;
 pub struct TerrainManager {
-    position: ChunkPosition,
+    pub position: ChunkPosition,
     chunks: Arc<ChunkMap>,
-    visible_chunks: ChunkPositionSet,
+    pub visible_chunks: ChunkPositionSet,
     registry: Arc<Registry>,
-    threadpool: ThreadPool,
-    mesher: ChunkMesher,
-    meshes: ChunkMeshMap,
+    pub threadpool: ThreadPool,
+    pub mesher: ChunkMesher,
+    pub meshes: ChunkMeshMap,
     noise: Arc<Fbm>,
 }
 
 #[allow(dead_code)]
 impl TerrainManager {
-    pub fn new(registry: &Arc<Registry>) -> Self {
+    pub fn new(registry: &Arc<Registry>, thread_number: usize) -> Self {
         let chunks = Arc::new(ChunkMap::default());
         let meshes = ChunkMeshMap::default();
 
         let threadpool = ThreadPoolBuilder::new()
-            .num_threads(1) // TODO: Measure performance difference on thread qtd change
+            .num_threads(thread_number) // TODO: Measure performance difference on thread qtd change
             .name("TerrainManager".to_string())
             .build();
         let mesher = ChunkMesher::new();
@@ -72,9 +72,9 @@ impl TerrainManager {
         &self.registry
     }
 
-    pub fn setup(&mut self, _display: &glium::Display) {
-        println!("Generating {} initial chunks...", (LOAD_DISTANCE * 2 + 1).pow(3));
-        let timer = std::time::Instant::now();
+    pub fn setup(&mut self) {
+        // println!("Generating {} initial chunks...", (LOAD_DISTANCE * 2 + 1).pow(3));
+        // let timer = std::time::Instant::now();
         for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
             for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
                 for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
@@ -86,12 +86,32 @@ impl TerrainManager {
                 }
             }
         }
-        println!("Generated {} in {:?}", self.chunks.len(), timer.elapsed());
+        // println!("Generated {} in {:?}", self.chunks.len(), timer.elapsed());
     }
+
+    pub fn setup_threaded(&mut self) {
+        // println!("Generating {} initial chunks...", (LOAD_DISTANCE * 2 + 1).pow(3));
+        // let timer = std::time::Instant::now();
+        self.chunks.clear();
+        for z in -LOAD_DISTANCE..=LOAD_DISTANCE {
+            for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
+                for x in -LOAD_DISTANCE..=LOAD_DISTANCE {
+                    let position = ChunkPosition::new(x, y, z);
+                    let chunks = self.chunks.clone();
+                    let noise = self.noise.clone();
+                    let registry = self.registry.clone();
+                    self.threadpool.execute(move || TerrainManager::generate_chunk(position, chunks, noise, registry));
+                }
+            }
+        }
+        // println!("Generated {} in {:?}", self.chunks.len(), timer.elapsed());
+    }
+
 
     pub fn update(&mut self, position: ChunkPosition) {
         if position != self.position{
             self.position = position;
+            // println!("Chunks: {} Visible: {} Rendered: {} Expected: {}", self.chunks.len(), self.visible_chunks.len(), self.meshes.len(), (LOAD_DISTANCE * 2 + 1).pow(3));
             for z in -LOAD_DISTANCE..=LOAD_DISTANCE{
                 for y in -LOAD_DISTANCE..=LOAD_DISTANCE{
                     for x in -LOAD_DISTANCE..=LOAD_DISTANCE{
@@ -120,7 +140,7 @@ impl TerrainManager {
         }
     }
 
-    pub fn mesh_chunks(&mut self, display: &glium::Display, timer: &std::time::Instant) {
+    pub fn mesh_chunks(&mut self, display: &engine::glium::Display, timer: &std::time::Instant) {
         //temp
         let mut remove_list = Vec::new();
         for c_ref in self.chunks.clone().iter(){
@@ -134,18 +154,18 @@ impl TerrainManager {
                     self.visible_chunks.insert(*position, ());
                 }
             }else{
-                self.meshes.remove(position);
-                self.visible_chunks.remove(position);
                 // self.chunks.remove(position);
                 remove_list.push(position.clone());
             }
         }
 
         for chunk in remove_list{
+            self.meshes.remove(&chunk);
+            self.visible_chunks.remove(&chunk);
             self.chunks.remove(&chunk);
         }
 
-        let min_fps = 60; // chunk meshing will not get the fps lower than this number
+        let min_fps = 30; // chunk meshing will not get the fps lower than this number
         while timer.elapsed() < std::time::Duration::from_millis(1000/min_fps){
             if let Ok((position, opaque, transparent)) = self.mesher.receive(){
                 let opaque_mesh = opaque.build(display);
@@ -213,6 +233,19 @@ impl TerrainManager {
         }
     }
 
+    pub fn set_block_no_dirty(&mut self, x: f32, y: f32, z: f32, block: usize){
+        let c_pos = ChunkPosition::from_world(x, y, z);
+        let block = if let Some(mut chunk) = self.chunks.get_mut(&c_pos){
+            let chunk = Arc::make_mut(chunk.value_mut());
+            let b_pos = Point3::new((((x % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((y % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize, (((z % CHUNKSIZE as f32) + CHUNKSIZE as f32) % CHUNKSIZE as f32) as usize);
+            chunk.set_block(b_pos.x, b_pos.y, b_pos.z, block);
+
+            Some(b_pos)
+        }else{
+            None
+        };
+    }
+
     fn chunk_neighbors(&self, position: &ChunkPosition) -> [Option<ChunkRef>; 6] {
         let east = self
             .chunks
@@ -249,14 +282,14 @@ impl TerrainManager {
         let sand = registry.block_registry().id_of("sand").unwrap_or(1);
         let dirt = registry.block_registry().id_of("dirt").unwrap_or(1);
         let stone = registry.block_registry().id_of("stone").unwrap_or(1);
-        // let bedrock = registry.block_registry().id_of("bedrock").unwrap_or(1);
+        let grassy = registry.block_registry().id_of("grassy").unwrap_or(1);
         let water = registry.block_registry().id_of("water").unwrap_or(1);
 
         let frequency = 0.005f64;
 
-        for z in 0..CHUNKSIZE {
+        for x in 0..CHUNKSIZE {
             for y in 0..CHUNKSIZE {
-                for x in 0..CHUNKSIZE {
+                for z in 0..CHUNKSIZE {
                     let nx = (position.x * CHUNKSIZE as isize + x as isize) as f64;
                     let ny = (position.y * CHUNKSIZE as isize + y as isize) as f64;
                     let nz = (position.z * CHUNKSIZE as isize + z as isize) as f64;
@@ -271,7 +304,9 @@ impl TerrainManager {
 
                     if ny <= -(CHUNKSIZE as f64) + 1. && ny < -height + 1.{
                         chunk.set_block(x, y, z, sand);
-                    } else if ny == -height{
+                    }else if ny == -height + 1. && ny >= -(CHUNKSIZE as f64) + 3.{
+                        chunk.set_block(x, y, z, grassy);
+                    }else if ny == -height{
                         chunk.set_block(x, y, z, grass);
                     } else if ny <= -(CHUNKSIZE as f64) && ny >= -height{
                         chunk.set_block(x, y, z, water);
@@ -332,16 +367,20 @@ impl TerrainManager {
                                         }
                                     },
                                     _ => {
-                                        let mut custom_mesh = registry.mesh_registry().by_id(b_mesh).expect("Unknown mesh in chunk").get_mesh().clone();
+                                        let custom_mesh = registry.mesh_registry().by_id(b_mesh).expect("Unknown mesh in chunk");
+                                        let mut mesh = custom_mesh.get_mesh().clone();
                                         let tex_coord = b_data.get_face(Direction::East);
-                                        for vertex in &mut custom_mesh.vertices{
+                                        for vertex in &mut mesh.vertices{
                                             vertex.block = tex_coord;
+                                            vertex.position[0] += x as f32;
+                                            vertex.position[1] += y as f32;
+                                            vertex.position[2] += z as f32;
                                         }
 
-                                        if b_data.is_transparent(){
-                                            transparent_mesh.append(custom_mesh);
+                                        if custom_mesh.is_transparent(){
+                                            transparent_mesh.append(mesh);
                                         }else{
-                                            opaque_mesh.append(custom_mesh);
+                                            opaque_mesh.append(mesh);
                                         }
                                     },
                                 }

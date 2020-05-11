@@ -1,7 +1,5 @@
-use crate::engine::DebugVertex;
+use crate::{DebugVertex, Vertex, Direction};
 use cgmath::Point3;
-use crate::engine::Vertex;
-use crate::game::terrain::block::Direction;
 
 pub const UNIT: f32 = 1.;
 pub const HALF: f32 = UNIT / 2.;
@@ -43,44 +41,54 @@ impl MeshData{
     }
 
     pub fn add_face(&mut self, position: Point3<f32>, direction: Direction, block: [u32; 2]){
-        let vertices = match direction{
+        let mut vertices = match direction{
             Direction::North => vec![
                 Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+HALF], [0., 0.], block),
                 Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+HALF], [1., 0.], block),
-                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF],  [0., 1.], block),
-                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF],  [1., 1.], block)
+                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF], [0., 1.], block),
+                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF], [1., 1.], block)
             ],
             Direction::South => vec![
                 Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+(-HALF)], [0., 0.], block),
                 Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+(-HALF)], [1., 0.], block),
-                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+(-HALF)],  [0., 1.], block),
-                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+(-HALF)],  [1., 1.], block)
+                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+(-HALF)], [0., 1.], block),
+                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+(-HALF)], [1., 1.], block)
             ],
             Direction::West => vec![
                 Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+(-HALF)], [0., 0.], block),
-                Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+HALF], [1., 0.], block),
+                Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+HALF],    [1., 0.], block),
                 Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+(-HALF)], [0., 1.], block),
-                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF], [1., 1.], block)
+                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF],    [1., 1.], block)
             ],
             Direction::East => vec![
-                Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+HALF], [0., 0.], block),
+                Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+HALF],    [0., 0.], block),
                 Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+(-HALF)], [1., 0.], block),
-                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF], [0., 1.], block),
+                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF],    [0., 1.], block),
                 Vertex::new([position.x + HALF,     position.y + HALF,      position.z+(-HALF)], [1., 1.], block)
             ],
             Direction::Top => vec![
-                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF], [0., 0.], block),
-                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF], [1., 0.], block),
+                Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+HALF],    [0., 0.], block),
+                Vertex::new([position.x + HALF,     position.y + HALF,      position.z+HALF],    [1., 0.], block),
                 Vertex::new([position.x + (-HALF),  position.y + HALF,      position.z+(-HALF)], [0., 1.], block),
                 Vertex::new([position.x + HALF,     position.y + HALF,      position.z+(-HALF)], [1., 1.], block)
             ],
             Direction::Bottom => vec![
                 Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+(-HALF)], [0., 0.], block),
                 Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+(-HALF)], [1., 0.], block),
-                Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+HALF], [0., 1.], block),
-                Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+HALF], [1., 1.], block)
+                Vertex::new([position.x + (-HALF),  position.y + (-HALF),   position.z+HALF],    [0., 1.], block),
+                Vertex::new([position.x + HALF,     position.y + (-HALF),   position.z+HALF],    [1., 1.], block)
             ],
         };
+        for vertex in &mut vertices{
+            vertex.tint = match direction{
+                Direction::North =>  [0.5, 0.5, 0.5, 1.],
+                Direction::South =>  [0.5, 0.5, 0.5, 1.],
+                Direction::West =>   [0.35, 0.35, 0.35, 1.],
+                Direction::East =>   [0.35, 0.35, 0.35, 1.],
+                Direction::Top =>    [1., 1., 1., 1.],
+                Direction::Bottom => [0.1, 0.1, 0.1, 1.],
+            };
+        }
         let indices = vec![2, 3, 1, 1, 0, 2];
         self.add(vertices, indices);
     }

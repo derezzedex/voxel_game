@@ -1,7 +1,8 @@
 use cgmath::Point3;
-use crate::engine::{DebugVertex, Vertex};
-use crate::engine::ui::UIManager;
-use crate::engine::mesh::{DebugMeshData};
+use crate::{DebugVertex, Vertex};
+use crate::ui::UIManager;
+use crate::mesh::{DebugMeshData};
+use crate::utils::filesystem;
 
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
@@ -45,14 +46,17 @@ impl Context {
             .window()
             .set_position(glium::glutin::dpi::LogicalPosition::new(0., 0.));
 
-        let cargo_dir = env!("CARGO_MANIFEST_DIR");
+        // TODO: Fix this ugly solution to the current file retrieving method
+        let cargo = filesystem::cargo_path();
+        let shader_path = cargo.join("res").join("shaders");
+        println!("Shader directory: {:?}", &shader_path);
 
         // CHUNK SHADER
         let vertex_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(vert))
+            fs::read_to_string(&shader_path.join(vert))
                 .expect("Something went wrong reading the file");
         let fragment_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join(frag))
+            fs::read_to_string(&shader_path.join(frag))
                 .expect("Something went wrong reading the file");
         let chunk_program =
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
@@ -60,10 +64,10 @@ impl Context {
 
         // DEBUG SHADER
         let vertex_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join("debug").join("vertex.glsl"))
+            fs::read_to_string(&shader_path.join("debug").join("vertex.glsl"))
                 .expect("Something went wrong reading the file");
         let fragment_shader_src =
-            fs::read_to_string(&Path::new(cargo_dir).join("res").join("shaders").join("debug").join("fragment.glsl"))
+            fs::read_to_string(&shader_path.join("debug").join("fragment.glsl"))
                 .expect("Something went wrong reading the file");
         let debug_program =
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
@@ -156,6 +160,20 @@ impl Context {
             .clear_color_and_depth((color[0], color[1], color[2], color[3]), 1.0);
     }
 
+    pub fn draw_with_params<T: AsUniformValue, R: Uniforms>(
+        &mut self,
+        vb: &glium::VertexBuffer<Vertex>,
+        ib: &glium::IndexBuffer<u32>,
+        u: &glium::uniforms::UniformsStorage<T, R>,
+        r: glium::DrawParameters
+    ) {
+        self.frame
+            .as_mut()
+            .unwrap()
+            .draw(vb, ib, &self.chunk_program, u, &r)
+            .unwrap();
+    }
+
     pub fn draw<T: AsUniformValue, R: Uniforms>(
         &mut self,
         vb: &glium::VertexBuffer<Vertex>,
@@ -166,30 +184,6 @@ impl Context {
             .as_mut()
             .unwrap()
             .draw(vb, ib, &self.chunk_program, u, &self.render_params)
-            .unwrap();
-    }
-
-    pub fn draw_transparent<T: AsUniformValue, R: Uniforms>(
-        &mut self,
-        vb: &glium::VertexBuffer<Vertex>,
-        ib: &glium::IndexBuffer<u32>,
-        u: &glium::uniforms::UniformsStorage<T, R>,
-    ) {
-        let render_params = glium::DrawParameters {
-            depth: glium::Depth {
-                test: glium::DepthTest::IfLess,
-                write: false,
-                ..Default::default()
-            },
-            blend: glium::Blend::alpha_blending(),
-            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
-            ..Default::default()
-        };
-
-        self.frame
-            .as_mut()
-            .unwrap()
-            .draw(vb, ib, &self.chunk_program, u, &render_params)
             .unwrap();
     }
 

@@ -1,6 +1,7 @@
 use std::io::Cursor;
 use std::path::Path;
 use image::GenericImageView;
+use crate::utils::filesystem;
 
 pub type TextureArray = glium::texture::srgb_texture2d_array::SrgbTexture2dArray;
 pub type RawImage<'a, T> = glium::texture::RawImage2d<'a, T>;
@@ -14,8 +15,8 @@ pub struct TextureStorage{
 
 impl TextureStorage{
     pub fn new(display: &glium::Display, image_path: &Path, image_type: image::ImageFormat, tile_size: u32) -> Self{
-        let cargo = env!("CARGO_MANIFEST_DIR");
-        let path = Path::new(cargo).join(image_path);
+        let cargo = filesystem::cargo_path();
+        let path = Path::new(&cargo).join(image_path);
 
         let data = std::fs::read(path).expect("Couldn't read image!");
         let bytes = Cursor::new(&data[..]);

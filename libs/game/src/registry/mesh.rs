@@ -1,6 +1,6 @@
-use crate::engine::Vertex;
+use engine::Vertex;
 pub use cgmath::Point3;
-use crate::engine::mesh;
+use engine::mesh;
 use dashmap::DashMap;
 
 //TODO: Use AABB3 from collision
@@ -22,13 +22,15 @@ impl Hitbox{
 pub struct MeshData{
     mesh: mesh::MeshData,
     hitbox: Hitbox,
+    transparent: bool
 }
 
 impl MeshData{
-    pub fn new(v: Vec<Vertex>, i: Vec<u32>, hitbox: Hitbox) -> Self{
+    pub fn new(v: Vec<Vertex>, i: Vec<u32>, hitbox: Hitbox, transparent: bool) -> Self{
         Self{
             mesh: mesh::MeshData::raw(v, i),
-            hitbox
+            hitbox,
+            transparent
         }
     }
 
@@ -38,6 +40,10 @@ impl MeshData{
 
     pub fn get_hitbox(&self) -> &Hitbox{
         &self.hitbox
+    }
+
+    pub fn is_transparent(&self) -> bool{
+        self.transparent
     }
 }
 

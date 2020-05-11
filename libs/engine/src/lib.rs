@@ -1,8 +1,48 @@
-use cgmath::Vector3;
-use num_enum::TryFromPrimitive;
-use cgmath::InnerSpace;
+#![allow(deprecated)] // Since the implement_vertex will be removed in the future, for now I supress the warning
+#[macro_use]
+pub extern crate glium;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+use cgmath::{Vector3, InnerSpace};
+
+#[derive(Copy, Clone, Debug)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub uv: [f32; 2],
+    pub block: [u32; 2],
+    pub tint: [f32; 4]
+}
+
+impl Vertex{
+    pub const fn new(position: [f32; 3], uv: [f32; 2], block: [u32; 2]) -> Vertex{
+        Vertex{
+            position,
+            uv,
+            block,
+            tint: [1., 1., 1., 1.]
+        }
+    }
+}
+
+implement_vertex!(Vertex, position, uv, block, tint);
+
+#[derive(Copy, Clone, Debug)]
+pub struct DebugVertex {
+    pub position: [f32; 3],
+    pub color: [f32; 4]
+}
+
+impl DebugVertex{
+    pub const fn new(position: [f32; 3], color: [f32; 4]) -> Self{
+        Self{
+            position,
+            color
+        }
+    }
+}
+
+implement_vertex!(DebugVertex, position, color);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
 pub enum Direction{
     East = 0,
@@ -41,34 +81,7 @@ impl From<Vector3<f32>> for Direction{
     }
 }
 
-#[allow(dead_code)]
-#[derive(Default)]
-pub struct BlockData{
-    faces: [[u32; 2]; 6],
-    mesh: usize,
-    breakable: bool,
-    transparent: bool
-}
-
-impl BlockData{
-    pub fn new(faces: [[u32; 2]; 6], mesh: usize, breakable: bool, transparent: bool) -> Self{
-        Self{
-            faces,
-            mesh,
-            breakable,
-            transparent
-        }
-    }
-
-    pub fn get_mesh(&self) -> usize{
-        self.mesh
-    }
-
-    pub fn get_face(&self, dir: Direction) -> [u32; 2]{
-        self.faces[dir as usize]
-    }
-
-    pub fn is_transparent(&self) -> bool{
-        self.transparent
-    }
-}
+pub mod renderer;
+pub mod mesh;
+pub mod utils;
+pub mod ui;

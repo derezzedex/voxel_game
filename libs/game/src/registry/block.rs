@@ -1,5 +1,6 @@
 use dashmap::DashMap;
-pub use crate::game::terrain::block::{Direction, BlockData};
+pub use crate::terrain::block::{BlockData};
+pub use engine::Direction;
 
 pub struct BlockDataBuilder{
     faces: Option<[[u32; 2]; 6]>,

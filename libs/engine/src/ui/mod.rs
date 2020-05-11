@@ -1,6 +1,7 @@
 use std::io::Cursor;
 use std::fs;
 use std::path::Path;
+use crate::utils::filesystem;
 
 #[derive(Copy, Clone, Debug)]
 pub struct UIVertex {
@@ -78,8 +79,8 @@ pub struct UIManager{
 
 impl UIManager{
     pub fn new(display: &glium::Display, path: &Path, image_type: image::ImageFormat) -> Self{
-        let cargo = env!("CARGO_MANIFEST_DIR");
-        let path = Path::new(cargo).join("res").join(path);
+        let cargo = filesystem::cargo_path();
+        let path = cargo.join("res").join(path);
 
         let data = std::fs::read(path).expect("Couldn't read image!");
         let bytes = Cursor::new(&data[..]);
@@ -90,10 +91,10 @@ impl UIManager{
         let texture = Texture2D::new(display, raw_texture).expect("Couldn't create Texture2D");
 
         let vertex_shader_src =
-            fs::read_to_string(&Path::new(cargo).join("res").join("shaders").join("ui").join("vertex.glsl"))
+            fs::read_to_string(&cargo.join("res").join("shaders").join("ui").join("vertex.glsl"))
                 .expect("Something went wrong reading the file");
         let fragment_shader_src =
-            fs::read_to_string(&Path::new(cargo).join("res").join("shaders").join("ui").join("fragment.glsl"))
+            fs::read_to_string(&cargo.join("res").join("shaders").join("ui").join("fragment.glsl"))
                 .expect("Something went wrong reading the file");
         let shader_program =
             glium::Program::from_source(display, &vertex_shader_src, &fragment_shader_src, None)

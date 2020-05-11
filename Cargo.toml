@@ -8,19 +8,11 @@ license = "GPL-3.0"
 edition = "2018"
 readme = "README.md"
 
-[dependencies]
-glium = "0.22"
-cgmath = "*"
-collision = "0.20.1"
-image = "^0.23.2"
-rayon = "*"
-specs = "*"
-specs-derive = "*"
-noise = "*"
-uvth = "*"
-dashmap = "*"
-slice-deque = "*"
-num_enum = "*"
+[workspace]
+members = [
+  "libs/engine",
+  "libs/game",
+]
 
-[profile.release]
-lto = true
+[dependencies]
+game = { path = "libs/game" }

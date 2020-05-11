@@ -2,8 +2,8 @@ use rayon::prelude::*;
 use specs::prelude::*;
 use std::sync::Arc;
 
-use crate::game::terrain::{ChunkMap};
-use crate::game::ecs::components::*;
+use crate::terrain::{ChunkMap};
+use crate::ecs::components::*;
 
 use cgmath::{Vector3, InnerSpace, Zero};
 

@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use super::chunk::ChunkPosition;
-use crate::engine::mesh::MeshData;
+use engine::mesh::MeshData;
 
 pub type MeshMessage = (ChunkPosition, MeshData, Option<MeshData>);
 pub struct ChunkMesher {
