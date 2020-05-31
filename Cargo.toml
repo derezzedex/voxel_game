@@ -1,18 +1,5 @@
-[package]
-name = "voxel_game"
-version = "0.1.2"
-authors = ["derezzedex <richardsoncusto@gmail.com>"]
-description = "Simple voxel game"
-repository = "https://github.com/derezzedex/voxel_game"
-license = "GPL-3.0"
-edition = "2018"
-readme = "README.md"
-
 [workspace]
 members = [
-  "libs/engine",
-  "libs/game",
+  "client",
+  "engine",
 ]
-
-[dependencies]
-game = { path = "libs/game" }

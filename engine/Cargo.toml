@@ -1,0 +1,30 @@
+[package]
+name = "engine"
+version = "0.1.0"
+authors = ["derezzedex <richardsoncusto@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Window & Input
+winit = "0.20"
+
+# Graphics
+shaderc = "0.6.2"
+wgpu = "0.5.0"
+image = "0.22"
+
+# Math & Conversions
+vek = "0.11.0"
+bytemuck = "1.2.0"
+
+# Multithreading
+futures = "0.3.4"
+crossbeam = "0.7.3"
+uvth = "4.0.1"
+dashmap = "3.11.2"
+
+# Error & Logging
+anyhow = "1.0"
+log = "0.4.8"

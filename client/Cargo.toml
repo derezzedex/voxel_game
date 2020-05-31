@@ -1,0 +1,17 @@
+[package]
+name = "client"
+version = "0.1.2"
+authors = ["derezzedex <richardsoncusto@gmail.com>"]
+description = "Simple voxel game"
+repository = "https://github.com/derezzedex/voxel_game"
+license = "GPL-3.0"
+edition = "2018"
+readme = "README.md"
+
+[dependencies]
+engine = { path = "../engine" }
+
+log = "0.4.8"
+fern = { version="0.6.0", features=["colored"] }
+chrono = "0.4.11"
+futures = "0.3.4"
