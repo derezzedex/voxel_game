@@ -36,4 +36,8 @@ impl Timer{
     pub fn should_update(&self) -> bool{
         self.accumulator >= self.ups
     }
+
+    pub fn delta(&self) -> Duration{
+        self.delta
+    }
 }

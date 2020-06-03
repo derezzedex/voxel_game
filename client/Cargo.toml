@@ -11,6 +11,10 @@ readme = "README.md"
 [dependencies]
 engine = { path = "../engine" }
 
+glam = "0.8.7"
+uvth = "4.0.1"
+dashmap = "3.11.2"
+
 log = "0.4.8"
 fern = { version="0.6.0", features=["colored"] }
 chrono = "0.4.11"

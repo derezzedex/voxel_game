@@ -34,7 +34,7 @@ impl DebugInfo{
         Default::default()
     }
 
-    pub fn update(mut self) -> Self{
+    pub fn update(self) -> Self{
         if self.timer.elapsed() >= Duration::from_secs(1){
             info!("{}", self);
             return Self { total_updates: self.total_updates, .. Default::default() };
