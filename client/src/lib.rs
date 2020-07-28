@@ -1,94 +1,68 @@
 use engine::{
     render::{
-        renderer::{DrawType, Renderer},
-        mesh::{Mesh, Vertex},
+        renderer::{Renderer, DrawType},
+        interface::InterfaceManager,
     },
     utils::{
+        MessageChannel,
         timer::Timer,
         debug::DebugInfo,
         camera::Camera,
     },
     winit::{
-        event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode},
+        event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode, ElementState},
         event_loop::{EventLoop, ControlFlow},
     },
 };
 
-use dashmap::DashMap;
 use futures::executor::block_on;
+use fern::colors::{Color, ColoredLevelConfig};
 use log::info;
 
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub struct MeshPosition{
-    pub x: isize,
-    pub y: isize,
-    pub z: isize,
-}
+mod world;
+use world::WorldManager;
+use world::manager::MeshPosition;
 
 pub struct Game{
     running: bool,
-    renderer: Renderer,
     timer: Timer,
-
     camera: Camera,
-    meshes: DashMap<MeshPosition, Mesh>,
 
-    debug: DebugInfo,
+    renderer: Renderer,
+    world_manager: WorldManager,
+    interface_manager: InterfaceManager,
 }
 
 impl Game{
     pub fn new(event_loop: &EventLoop<()>) -> Self{
         let running = true;
-        let renderer = block_on(Renderer::new(event_loop));
+        let mut renderer = block_on(Renderer::new(event_loop));
         let timer = Timer::new(20); // 20 updates per second!
 
         let camera = Camera::default();
-        let meshes = DashMap::new();
 
-        let debug = DebugInfo::new();
+        let world_manager = WorldManager::new();
+        let interface_manager = InterfaceManager::new(&mut renderer);
 
         Self{
             running,
-            renderer,
             timer,
-
             camera,
-            meshes,
 
-            debug,
+            renderer,
+            world_manager,
+            interface_manager,
         }
     }
 
-    pub fn setup(&mut self){
-        let vertices = vec![
-            //Quad2
-            Vertex { position: [ 0.5, -0.5, 1.], tex_coord: [0., 1.], },
-            Vertex { position: [ 1.5, -0.5, 1.], tex_coord: [1., 1.], },
-            Vertex { position: [ 0.5,  0.5, 1.], tex_coord: [0., 0.], },
-            Vertex { position: [ 1.5,  0.5, 1.], tex_coord: [1., 0.], },
-
-            //Quad1
-            Vertex { position: [-0.5, -0.5, 0.], tex_coord: [0., 1.], },
-            Vertex { position: [ 0.5, -0.5, 0.], tex_coord: [1., 1.], },
-            Vertex { position: [-0.5,  0.5, 0.], tex_coord: [0., 0.], },
-            Vertex { position: [ 0.5,  0.5, 0.], tex_coord: [1., 0.], },
-        ];
-        let indices = vec![
-            0, 1, 2,
-            2, 1, 3,
-
-            4, 5, 6,
-            6, 5, 7
-        ];
-
-        let mesh = Mesh::new(self.renderer().device(), vertices, indices);
-        let position = MeshPosition{ x: -5, y: 0, z: -8 };
-        self.meshes.insert(position, mesh);
+    pub fn setup(&mut self, channel: MessageChannel<String>){
+        self.interface_manager.set_message_channel(channel);
+        let device = self.renderer().arc_device().clone();
+        self.world_manager.setup(&device);
     }
 
     pub fn tick(&mut self){
         self.timer.reset();
-        self.debug = self.debug.update();
 
         while self.timer.should_update(){
             self.update();
@@ -97,28 +71,32 @@ impl Game{
     }
 
     pub fn update(&mut self){
-        self.debug.updates += 1;
-        self.debug.total_updates += 1;
+        self.interface_manager.update_debug("update", 1.);
+        self.interface_manager.update();
 
         self.camera.hard_update(self.timer.delta().as_secs_f32());
         self.renderer.uniforms().update_view(&self.camera);
+        self.world_manager.update();
     }
 
     pub fn render(&mut self){
-        self.debug.frames += 1;
+        // let frametime = std::time::Instant::now();
         self.renderer.start_frame();
         self.renderer.clear();
 
-        // render meshes
-        for map_ref in self.meshes.iter(){
-            let (position, mesh) = (map_ref.key(), map_ref.value());
-            let position_vec = glam::Vec3::new(position.x as f32, position.y as f32, position.z as f32);
-            self.renderer.draw(DrawType::Transparent, &position_vec, mesh);
+        for mesh in self.world_manager.meshes().iter(){
+            match mesh.key(){
+                MeshPosition::ChunkPosition(pos) => self.renderer.draw(DrawType::Opaque, &pos.to_world(), mesh.value()),
+                _ => (),
+            }
         }
-
         self.renderer.final_pass();
 
+        self.renderer.draw_interface(&mut self.interface_manager);
+
         self.renderer.end_frame();
+        self.interface_manager.update_debug("frame", 1.);
+        // self.interface_manager.update_debug("frametime", frametime.elapsed().as_secs_f64() * 1000.);
     }
 
     pub fn renderer(&mut self) -> &mut Renderer{
@@ -131,18 +109,26 @@ impl Game{
                 event,
                 window_id,
             } if window_id == self.renderer.window().id() => {
+                self.interface_manager.handle_event(&event, self.renderer.window().scale_factor());
                 match event{
                     WindowEvent::CloseRequested => self.exit(),
                     WindowEvent::Resized(physical_size) => {
+                        self.interface_manager.resize(physical_size, self.renderer.window().scale_factor());
                         self.renderer.resize(physical_size);
+                        info!("Resized to {:?}", physical_size);
+                        // self.renderer.window().request_redraw();
                     },
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         self.renderer.resize(*new_inner_size);
+                        info!("Resized to {:?}", new_inner_size);
+                        // self.renderer.window().request_redraw();
                     },
                     WindowEvent::KeyboardInput{ input, .. } => match input{
-                        KeyboardInput { virtual_keycode: Some(keycode), .. } => {
+                        KeyboardInput { virtual_keycode: Some(keycode), state, .. } => {
                             match keycode{
                                 VirtualKeyCode::Escape => self.exit(),
+                                VirtualKeyCode::Apostrophe => if state == ElementState::Pressed {self.interface_manager.toggle_console()},
+                                VirtualKeyCode::F3 => if state == ElementState::Pressed {self.interface_manager.toggle_debug()},
                                 _ => (),
                             }
                         },
@@ -150,15 +136,40 @@ impl Game{
                     },
                     _ => (),
                 }
+
+                // self.interface_manager.handle_event(&event);
             },
             _ => (),
         }
     }
 
     pub fn run(){
+        let channel = MessageChannel::new();
+        let colors = ColoredLevelConfig::new()
+            .debug(Color::Green)
+            .info(Color::Cyan)
+            .trace(Color::Magenta);
+        fern::Dispatch::new()
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "{}[{}][{}] {}",
+                    chrono::Local::now().format("[%H:%M:%S]"),
+                    record.target(),
+                    colors.color(record.level()),
+                    message
+                ))
+            })
+            .level(log::LevelFilter::Off)
+            .level_for("client", log::LevelFilter::Trace)
+            .level_for("engine", log::LevelFilter::Trace)
+            // .chain(std::io::stdout())
+            .chain(fern::Output::sender(channel.sender.clone(), ""))
+            .apply()
+            .expect("Couldn't create logger");
+
         let event_loop = EventLoop::new();
         let mut game = Game::new(&event_loop);
-        game.setup();
+        game.setup(channel);
 
         event_loop.run(move |event, _, control_flow| {
             match event {

@@ -8,11 +8,16 @@ edition = "2018"
 
 [dependencies]
 # Window & Input
-winit = "0.20"
+winit = "0.22.2"
+# iced_wgpu = "0.2.2"
+iced = { path = "../../iced" }
+iced_wgpu = { path="../../iced/wgpu" }
+iced_winit = { path="../../iced/winit" }
+# iced_winit = "0.1.0"
 
 # Graphics
 shaderc = "0.6.2"
-wgpu = "0.5.0"
+wgpu = { version="0.5.0", features=["vulkan"] }
 image = "0.22"
 
 # Math & Conversions
@@ -27,5 +32,6 @@ uvth = "4.0.1"
 dashmap = "3.11.2"
 
 # Error & Logging
+fern = { version="0.6.0", features=["colored"] }
 anyhow = "1.0"
 log = "0.4.8"

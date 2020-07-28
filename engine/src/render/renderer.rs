@@ -3,6 +3,7 @@ use crate::{
         texture::Texture,
         shaders::Shaders,
         mesh::{Vertex, Mesh},
+        interface::InterfaceManager,
     },
     utils::camera::Camera,
 };
@@ -11,8 +12,11 @@ use winit::{
     event_loop::EventLoop,
 };
 use log::{info, error};
+use std::sync::Arc;
 
 use glam::{Vec3, Mat4};
+
+pub use wgpu::Device;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -55,7 +59,7 @@ pub struct Renderer{
 
     surface: wgpu::Surface,
     adapter: wgpu::Adapter,
-    device: wgpu::Device,
+    device: Arc<wgpu::Device>,
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
@@ -88,11 +92,11 @@ impl Renderer{
             .build(&event_loop)
             .expect("Couldn't create window");
 
-        if let Err(e) = window.set_cursor_grab(true){
-            error!("Couldn't grab mouse, error: {}", e);
-        }
+        // if let Err(e) = window.set_cursor_grab(true){
+        //     error!("Couldn't grab mouse, error: {}", e);
+        // }
 
-        window.set_cursor_visible(false);
+        // window.set_cursor_visible(false);
         window.set_outer_position(winit::dpi::PhysicalPosition::new(0, 0));
 
         let surface = wgpu::Surface::create(&window);
@@ -122,7 +126,8 @@ impl Renderer{
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            // present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Mailbox,
         };
 
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
@@ -449,6 +454,8 @@ impl Renderer{
             alpha_to_coverage_enabled: false,
         });
 
+        let device = Arc::new(device);
+
         Self{
             window,
 
@@ -562,6 +569,22 @@ impl Renderer{
             }
         }else{
             error!("[Clear Pass] Failed to acquire encoder!");
+        }
+    }
+
+    pub fn draw_interface(&mut self, im: &mut InterfaceManager){
+        if let Some(encoder) = self.encoder.as_mut(){
+            if let Some(frame) = self.frame.as_mut(){
+                // info!("Starting renderer interface");
+                if let Some(device) = Arc::get_mut(&mut self.device){
+                    im.draw(device, encoder, &frame.view);
+                }
+                // info!("Ending renderer interface");
+            }else{
+                error!("[Opaque Draw] Failed to acquire frame!");
+            }
+        }else{
+            error!("[Opaque Draw] Failed to acquire encoder!");
         }
     }
 
@@ -725,6 +748,14 @@ impl Renderer{
 
     pub fn device(&self) -> &wgpu::Device{
         &self.device
+    }
+
+    pub fn arc_device(&self) -> &Arc<wgpu::Device>{
+        &self.device
+    }
+
+    pub fn device_mut(&mut self) -> &mut wgpu::Device{
+        Arc::get_mut(&mut self.device).expect("Failed to get mutable wgpu Device")
     }
 
     pub fn uniforms(&mut self) -> &mut Uniforms{
