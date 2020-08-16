@@ -1,8 +1,9 @@
 use crate::{render, utils};
 
 use iced_wgpu::{Backend, Renderer, Settings, Viewport};
-use iced_winit::{program::State, Debug, Size};
+use iced_winit::{conversion, program::State, Debug, Size};
 use winit::event::{ModifiersState, WindowEvent};
+use winit::dpi::PhysicalPosition;
 
 use utils::MessageChannel;
 
@@ -17,6 +18,7 @@ pub struct InterfaceManager{
     pub debug: Debug,
     pub viewport: Viewport,
     pub modifiers: ModifiersState,
+    pub cursor: PhysicalPosition<f64>,
 
     pub console_state: State<Console>,
     pub debug_state: State<DebugInterface>,
@@ -39,10 +41,14 @@ impl InterfaceManager{
         let mut debug = Debug::new();
         let mut renderer = Renderer::new(Backend::new(device, Settings::default()));
 
+        let cursor = PhysicalPosition::new(-1.0, -1.0);
+        let cursor_position = conversion::cursor_position(cursor, viewport.scale_factor());
+
         let controls = Console::new();
         let console_state = State::new(
             controls,
             viewport.logical_size(),
+            cursor_position,
             &mut renderer,
             &mut debug,
         );
@@ -51,6 +57,7 @@ impl InterfaceManager{
         let debug_state = State::new(
             debug_interface,
             viewport.logical_size(),
+            cursor_position,
             &mut renderer,
             &mut debug,
         );
@@ -62,6 +69,7 @@ impl InterfaceManager{
             debug,
             viewport,
             modifiers,
+            cursor,
 
             console_state,
             debug_state,
@@ -85,7 +93,14 @@ impl InterfaceManager{
     }
 
     pub fn handle_event(&mut self, event: &WindowEvent, scale_factor: f64){
-        if let Some(event) = iced_winit::conversion::window_event(
+        match &event{
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor = *position;
+            },
+            _ => (),
+        }
+        
+        if let Some(event) = conversion::window_event(
             event,
             scale_factor,
             self.modifiers
@@ -99,8 +114,9 @@ impl InterfaceManager{
             self.console_state.queue_message(console::Message::NewText(message));
         }
 
-        self.console_state.update(None, self.viewport.logical_size(), &mut self.renderer, &mut self.debug);
-        self.debug_state.update(None, self.viewport.logical_size(), &mut self.renderer, &mut self.debug);
+        let cursor = conversion::cursor_position(self.cursor, self.viewport.scale_factor());
+        self.console_state.update(self.viewport.logical_size(), cursor, None, &mut self.renderer, &mut self.debug);
+        self.debug_state.update(self.viewport.logical_size(), cursor, None, &mut self.renderer, &mut self.debug);
     }
 
     pub fn draw(&mut self, device: &mut wgpu::Device, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView){

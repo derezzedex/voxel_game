@@ -1,4 +1,5 @@
 pub use glam::{Vec3, Mat4};
+// use log::info;
 
 // #[cfg_attr(rustfmt, rustfmt_skip)]
 // const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
@@ -27,7 +28,19 @@ pub struct Camera{
 
 const DAMP: f32 = 0.75;
 const DAMP_LIMIT: f32 = 0.01;
+// const SENSITIVITY: f32 = 15.0;
 const SENSITIVITY: f32 = 0.05;
+
+const SPEED: f32 = 5.;
+
+pub enum Direction{
+    Forward,
+    Backward,
+    Left,
+    Right,
+    Up,
+    Down,
+}
 
 impl Default for Camera{
     fn default() -> Self{
@@ -55,7 +68,7 @@ impl Camera{
         Mat4::perspective_rh_gl(self.fovy, self.aspect, self.near, self.far)
     }
 
-    pub fn mouse_update(&mut self, dx: f32, dy: f32){
+    pub fn mouse_update(&mut self, dx: f32, dy: f32, dt: f32){
         self.yaw += dx * SENSITIVITY;
         self.pitch += - dy * SENSITIVITY;
 
@@ -66,6 +79,38 @@ impl Camera{
         let dz = self.yaw.to_radians().sin() * self.pitch.to_radians().cos();
 
         self.target = Vec3::new(dx, dy, dz).normalize();
+    }
+
+    pub fn start_moving(&mut self, dir: Direction){
+        let speed = Vec3::new(SPEED, SPEED, SPEED);
+        let vel = match dir{
+            Direction::Forward => speed * self.target,
+            Direction::Backward => -speed * self.target,
+            Direction::Left => -speed * self.target.cross(self.up).normalize(),
+            Direction::Right => speed * self.target.cross(self.up).normalize(),
+            Direction::Up => Vec3::new(0.5, 0.5, 0.5),
+            Direction::Down => Vec3::new(0.5, 0.5, 0.5),
+        };
+
+        self.velocity.set_x(self.velocity.x() + vel.x());
+        self.velocity.set_y(self.velocity.y() + vel.y());
+        self.velocity.set_z(self.velocity.z() + vel.z());
+    }
+
+    pub fn stop_moving(&mut self, dir: Direction){
+        let speed = Vec3::new(SPEED, SPEED, SPEED);
+        let vel = match dir{
+            Direction::Forward => -speed * self.target,
+            Direction::Backward => speed * self.target,
+            Direction::Left => speed * self.target.cross(self.up).normalize(),
+            Direction::Right => -speed * self.target.cross(self.up).normalize(),
+            Direction::Up => Vec3::new(0.5, 0.5, 0.5),
+            Direction::Down => Vec3::new(0.5, 0.5, 0.5),
+        };
+        
+        self.velocity.set_x(self.velocity.x() + vel.x());
+        self.velocity.set_y(self.velocity.y() + vel.y());
+        self.velocity.set_z(self.velocity.z() + vel.z());
     }
 
     pub fn hard_update(&mut self, dt: f32){

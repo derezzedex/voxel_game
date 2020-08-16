@@ -15,17 +15,17 @@ pub enum MeshPosition{
 }
 
 pub struct WorldManager{
-    chunks: DashMap<ChunkPosition, Chunk>,
-    visible: DashSet<ChunkPosition>,
-    meshes: DashMap<MeshPosition, Mesh>,
+    chunks: Arc<DashMap<ChunkPosition, Chunk>>,
+    visible: Arc<DashSet<ChunkPosition>>,
+    meshes: Arc<DashMap<MeshPosition, Mesh>>,
     threadpool: ThreadPool,
 }
 
 impl WorldManager{
     pub fn new() -> Self{
-        let chunks = DashMap::new();
-        let meshes = DashMap::new();
-        let visible = DashSet::new();
+        let chunks = Arc::new(DashMap::new());
+        let meshes = Arc::new(DashMap::new());
+        let visible = Arc::new(DashSet::new());
         let threadpool = ThreadPoolBuilder::new()
             .name("WorldManager Threadpool".to_string())
             .build();
