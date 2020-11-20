@@ -58,7 +58,6 @@ pub struct Renderer {
     window: Window,
 
     surface: wgpu::Surface,
-    adapter: wgpu::Adapter,
     device: Arc<wgpu::Device>,
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
@@ -479,7 +478,6 @@ impl Renderer {
             window,
 
             surface,
-            adapter,
             device,
             queue,
             sc_desc,

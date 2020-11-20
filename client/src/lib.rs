@@ -1,11 +1,10 @@
 use engine::{
     render::{
-        renderer::{Renderer, DrawType},
+        renderer::Renderer,
     },
     utils::{
         MessageChannel,
         timer::Timer,
-        debug::DebugInfo,
         camera::{Camera, Direction},
     },
     winit::{
@@ -18,10 +17,6 @@ use futures::executor::block_on;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::info;
 
-mod world;
-use world::WorldManager;
-use world::manager::MeshPosition;
-
 //TODO: Add State Management (Stack, Push, Pop, Transitions, etc.) [remove `focused` bool]
 pub struct Game{
     running: bool,
@@ -30,19 +25,16 @@ pub struct Game{
     camera: Camera,
 
     renderer: Renderer,
-    world_manager: WorldManager,
 }
 
 impl Game{
     pub fn new(event_loop: &EventLoop<()>) -> Self{
         let running = true;
         let focused = true;
-        let mut renderer = block_on(Renderer::new(event_loop));
+        let renderer = block_on(Renderer::new(event_loop));
         let timer = Timer::new(20); // 20 updates per second!
 
         let camera = Camera::default();
-
-        let world_manager = WorldManager::new();
 
         Self{
             running,
@@ -51,13 +43,10 @@ impl Game{
             camera,
 
             renderer,
-            world_manager,
         }
     }
 
     pub fn setup(&mut self){
-        let device = self.renderer().arc_device().clone();
-        self.world_manager.setup(&device);
         self.renderer.window().set_cursor_grab(self.focused).expect("Couldnt grab cursor!");
         self.renderer.window().set_cursor_visible(!self.focused);
     }
@@ -74,7 +63,6 @@ impl Game{
     pub fn update(&mut self){
         self.camera.hard_update(self.timer.delta().as_secs_f32());
         self.renderer.uniforms().update_view(&self.camera);
-        self.world_manager.update();
     }
 
     pub fn render(&mut self){
@@ -82,14 +70,7 @@ impl Game{
         self.renderer.start_frame();
         self.renderer.clear();
 
-        for mesh in self.world_manager.meshes().iter(){
-            match mesh.key(){
-                MeshPosition::ChunkPosition(pos) => self.renderer.draw(DrawType::Opaque, &pos.to_world(), mesh.value()),
-                _ => (),
-            }
-        }
         self.renderer.final_pass();
-
         self.renderer.end_frame();
     }
 

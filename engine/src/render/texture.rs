@@ -1,5 +1,4 @@
 use image::GenericImageView;
-use wgpu::util::DeviceExt;
 use std::path::Path;
 use anyhow::{Context, Result};
 use log::info;

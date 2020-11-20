@@ -1,13 +1,4 @@
 pub use glam::{Vec3, Mat4};
-// use log::info;
-
-// #[cfg_attr(rustfmt, rustfmt_skip)]
-// const OPENGL_TO_WGPU_MATRIX: Mat4 = Mat4::new(
-//     1.0, 0.0, 0.0, 0.0,
-//     0.0, 1.0, 0.0, 0.0,
-//     0.0, 0.0, 0.5, 0.0,
-//     0.0, 0.0, 0.5, 1.0,
-// );
 
 #[derive(Debug)]
 pub struct Camera{
@@ -68,7 +59,7 @@ impl Camera{
         Mat4::perspective_rh_gl(self.fovy, self.aspect, self.near, self.far)
     }
 
-    pub fn mouse_update(&mut self, dx: f32, dy: f32, dt: f32){
+    pub fn mouse_update(&mut self, dx: f32, dy: f32, _dt: f32){
         self.yaw += dx * SENSITIVITY;
         self.pitch += - dy * SENSITIVITY;
 
