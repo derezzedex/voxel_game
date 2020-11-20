@@ -15,10 +15,10 @@ opt-level=2
 [dependencies]
 engine = { path = "../engine" }
 
-legion = "0.2"
+legion = "0.3"
 
-glam = "0.8.7"
-uvth = "4.0.1"
+glam = "0.10"
+uvth = "4.0"
 dashmap = "3.11.2"
 
 log = "0.4.8"

@@ -1,3 +1,5 @@
+use wgpu::util::DeviceExt;
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Vertex{
@@ -40,14 +42,20 @@ impl Mesh{
     pub fn new(device: &wgpu::Device, vertices: Vec<Vertex>, indices: Vec<u16>) -> Self{
         let size = indices.len() as u32;
 
-        let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&vertices),
-            wgpu::BufferUsage::VERTEX,
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsage::VERTEX,
+            }
         );
 
-        let index_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&indices),
-            wgpu::BufferUsage::INDEX,
+        let index_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsage::INDEX,
+            }
         );
 
         Self{

@@ -1,7 +1,6 @@
 use engine::{
     render::{
         renderer::{Renderer, DrawType},
-        interface::InterfaceManager,
     },
     utils::{
         MessageChannel,
@@ -32,7 +31,6 @@ pub struct Game{
 
     renderer: Renderer,
     world_manager: WorldManager,
-    interface_manager: InterfaceManager,
 }
 
 impl Game{
@@ -45,7 +43,6 @@ impl Game{
         let camera = Camera::default();
 
         let world_manager = WorldManager::new();
-        let interface_manager = InterfaceManager::new(&mut renderer);
 
         Self{
             running,
@@ -55,12 +52,10 @@ impl Game{
 
             renderer,
             world_manager,
-            interface_manager,
         }
     }
 
-    pub fn setup(&mut self, channel: MessageChannel<String>){
-        self.interface_manager.set_message_channel(channel);
+    pub fn setup(&mut self){
         let device = self.renderer().arc_device().clone();
         self.world_manager.setup(&device);
         self.renderer.window().set_cursor_grab(self.focused).expect("Couldnt grab cursor!");
@@ -77,9 +72,6 @@ impl Game{
     }
 
     pub fn update(&mut self){
-        self.interface_manager.update_debug("update", 1.);
-        self.interface_manager.update();
-
         self.camera.hard_update(self.timer.delta().as_secs_f32());
         self.renderer.uniforms().update_view(&self.camera);
         self.world_manager.update();
@@ -98,11 +90,7 @@ impl Game{
         }
         self.renderer.final_pass();
 
-        self.renderer.draw_interface(&mut self.interface_manager);
-
         self.renderer.end_frame();
-        self.interface_manager.update_debug("frame", 1.);
-        // self.interface_manager.update_debug("frametime", frametime.elapsed().as_secs_f64() * 1000.);
     }
 
     pub fn renderer(&mut self) -> &mut Renderer{
@@ -145,11 +133,9 @@ impl Game{
                 event,
                 window_id,
             } if window_id == self.renderer.window().id() => {
-                self.interface_manager.handle_event(&event, self.renderer.window().scale_factor());
                 match event{
                     WindowEvent::CloseRequested => self.exit(),
                     WindowEvent::Resized(physical_size) => {
-                        self.interface_manager.resize(physical_size, self.renderer.window().scale_factor());
                         self.renderer.resize(physical_size);
                         info!("Resized to {:?}", physical_size);
                         // self.renderer.window().request_redraw();
@@ -164,8 +150,6 @@ impl Game{
                             match keycode{
                                 // DEBUG
                                 VirtualKeyCode::Escape => self.exit(),
-                                VirtualKeyCode::Apostrophe => if state == ElementState::Pressed { self.toggle_console() },
-                                VirtualKeyCode::F3 => if state == ElementState::Pressed {self.interface_manager.toggle_debug()},
                                 // OTHER KEY
                                 key => if state == ElementState::Pressed { self.on_key_press(key) } else { self.on_key_release(key) },
                             }
@@ -207,7 +191,7 @@ impl Game{
 
         let event_loop = EventLoop::new();
         let mut game = Game::new(&event_loop);
-        game.setup(channel);
+        game.setup();
 
         event_loop.run(move |event, _, control_flow| {
             match event {
@@ -227,14 +211,6 @@ impl Game{
                 *control_flow = ControlFlow::Exit;
             }
         });
-    }
-
-    pub fn toggle_console(&mut self){
-        self.interface_manager.toggle_console();
-        self.focused = !self.focused;
-        info!("Focused: {}", self.focused);
-        self.renderer.window().set_cursor_grab(self.focused);
-        self.renderer.window().set_cursor_visible(!self.focused);
     }
 
     pub fn is_running(&self) -> bool{
