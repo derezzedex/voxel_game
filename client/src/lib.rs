@@ -3,7 +3,6 @@ use engine::{
         renderer::Renderer,
     },
     utils::{
-        MessageChannel,
         timer::Timer,
         camera::{Camera, Direction},
     },
@@ -147,7 +146,6 @@ impl Game{
     }
 
     pub fn run(){
-        let channel = MessageChannel::new();
         let colors = ColoredLevelConfig::new()
             .debug(Color::Green)
             .info(Color::Cyan)
@@ -165,8 +163,7 @@ impl Game{
             .level(log::LevelFilter::Off)
             .level_for("client", log::LevelFilter::Trace)
             .level_for("engine", log::LevelFilter::Trace)
-            // .chain(std::io::stdout())
-            .chain(fern::Output::sender(channel.sender.clone(), ""))
+            .chain(std::io::stdout())
             .apply()
             .expect("Couldn't create logger");
 
