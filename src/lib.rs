@@ -1,4 +1,7 @@
-use engine::{
+mod render;
+mod utils;
+
+use crate::{
     render::{
         renderer::Renderer,
     },
@@ -6,16 +9,16 @@ use engine::{
         timer::Timer,
         camera::{Camera, Direction},
     },
-    winit::{
-        event::{Event, WindowEvent, DeviceEvent, KeyboardInput, VirtualKeyCode, ElementState},
-        event_loop::{EventLoop, ControlFlow},
-    },
+};
+
+use winit::{
+    event::{Event, WindowEvent, DeviceEvent, KeyboardInput, VirtualKeyCode, ElementState},
+    event_loop::{EventLoop, ControlFlow},
 };
 
 use futures::executor::block_on;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::info;
-
 //TODO: Add State Management (Stack, Push, Pop, Transitions, etc.) [remove `focused` bool]
 pub struct Game{
     running: bool,

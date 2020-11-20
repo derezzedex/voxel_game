@@ -1,5 +1,39 @@
-[workspace]
-members = [
-  "client",
-  "engine",
-]
+[package]
+name = "client"
+version = "0.1.2"
+authors = ["Richard <richardsoncusto@gmail.com>"]
+description = "Simple voxel game"
+repository = "https://github.com/derezzedex/voxel_game"
+license = "GPL-3.0"
+edition = "2018"
+
+[profile.dev]
+opt-level=2
+
+[dependencies]
+# Window & Input
+winit = "0.23"
+
+# Graphics
+glsl-to-spirv = "0.1.7"
+wgpu = "0.6.0"
+image = "0.23"
+
+# Math & Conversions
+glam = "0.10"
+bytemuck = "1.4"
+
+# Multithreading
+futures = "0.3.4"
+crossbeam = "0.8"
+uvth = "4.0.1"
+dashmap = "3.11.2"
+
+# Error & Logging
+fern = { version="0.6.0", features=["colored"] }
+anyhow = "1.0"
+log = "0.4.8"
+
+legion = "0.3"
+
+chrono = "0.4.11"

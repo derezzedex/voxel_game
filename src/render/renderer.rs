@@ -198,7 +198,7 @@ impl Renderer {
             ],
         });
 
-        let path = "./res/img/glass.png";
+        let path = "./assets/img/texture/atlas.png";
         let atlas = Texture::from_path(&queue, &device, path).expect("Couldn't load texture");
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -216,7 +216,7 @@ impl Renderer {
             ],
         });
 
-        let path = "./res/shaders/opaque";
+        let path = "./assets/shaders/opaque";
         let shaders = Shaders::new(&device, path).expect("Couldn't load opaque shaders");
 
         let opaque_pipeline_layout =
@@ -294,7 +294,7 @@ impl Renderer {
             "revealage tex",
         );
 
-        let path = "./res/shaders/transparency";
+        let path = "./assets/shaders/transparency";
         let shaders = Shaders::new(&device, path).expect("Couldn't load transparency shaders");
 
         let transparency_pipeline_layout =
@@ -418,7 +418,7 @@ impl Renderer {
             ],
         });
 
-        let path = "./res/shaders/final";
+        let path = "./assets/shaders/final";
         let shaders = Shaders::new(&device, path).expect("Couldn't load final shaders");
 
         let final_pipeline_layout =
