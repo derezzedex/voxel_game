@@ -473,7 +473,7 @@ impl Renderer {
             wgpu::TextureFormat::R8Unorm,
             "revealage tex",
         );
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);        
     }
 
     pub fn start_frame(&mut self) {

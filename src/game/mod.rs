@@ -110,12 +110,14 @@ impl Game {
                     WindowEvent::Resized(physical_size) => {
                         self.renderer.resize(physical_size);
                         info!("Resized to {:?}", physical_size);
-                        self.window.request_redraw();
+                        self.camera.resize(physical_size);
+                        self.renderer.uniforms().update_projection(self.camera.get_projection());
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         self.renderer.resize(*new_inner_size);
                         info!("Resized to {:?}", new_inner_size);
-                        self.window.request_redraw();
+                        self.camera.resize(*new_inner_size);
+                        self.renderer.uniforms().update_projection(self.camera.get_projection());
                     }
                     WindowEvent::KeyboardInput { input, .. } => match input {
                         KeyboardInput {
@@ -141,27 +143,21 @@ impl Game {
                     _ => (),
                 }
 
-                // self.interface_manager.handle_event(&event);
             }
             _ => (),
         }
     }
 
     pub fn run() {
-        tracing_subscriber::fmt::init();
-        
         let event_loop = EventLoop::new();
         let mut game = Game::new(&event_loop);
         game.setup();
 
         event_loop.run(move |event, _, control_flow| {
             match event {
-                Event::RedrawRequested(_) => {
-                    game.render();
-                }
                 Event::MainEventsCleared => {
                     game.tick();
-                    game.window.request_redraw();
+                    game.render();
                 }
                 _ => game.process_event(event),
             }

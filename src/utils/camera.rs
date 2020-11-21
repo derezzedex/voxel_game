@@ -53,6 +53,10 @@ impl Camera {
         ultraviolet::projection::perspective_wgpu_dx(self.fovy, self.aspect, self.near, self.far)
     }
 
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>){
+        self.aspect = new_size.width as f32/ new_size.height as f32;
+    }
+
     pub fn mouse_update(&mut self, dx: f32, dy: f32, _dt: f32) {
         self.yaw += dx * SENSITIVITY;
         self.pitch += -dy * SENSITIVITY;
