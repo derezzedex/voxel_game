@@ -1,5 +1,5 @@
 [package]
-name = "client"
+name = "voxel_game"
 version = "0.1.2"
 authors = ["Richard <richardsoncusto@gmail.com>"]
 description = "Simple voxel game"
