@@ -15,25 +15,24 @@ opt-level=2
 winit = "0.23"
 
 # Graphics
-glsl-to-spirv = "0.1.7"
 wgpu = "0.6.0"
 image = "0.23"
+glsl-to-spirv = "0.1.7"
 
 # Math & Conversions
-glam = "0.10"
+# glam = "0.10"
+ultraviolet = { version="0.7.5", features=["bytemuck"] }
 bytemuck = "1.4"
 
 # Multithreading
 futures = "0.3.4"
 crossbeam = "0.8"
 uvth = "4.0.1"
-dashmap = "3.11.2"
 
-# Error & Logging
-fern = { version="0.6.0", features=["colored"] }
-anyhow = "1.0"
-log = "0.4.8"
-
+# Game
 legion = "0.3"
 
-chrono = "0.4.11"
+# Error & Logging
+tracing = "0.1"
+tracing-subscriber = "0.2"
+anyhow = "1.0"

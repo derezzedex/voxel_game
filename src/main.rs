@@ -1,5 +1,5 @@
 use client::Game;
 
-fn main(){
+fn main() {
     Game::run();
 }

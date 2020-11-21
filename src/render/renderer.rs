@@ -6,15 +6,15 @@ use crate::{
     },
     utils::camera::Camera,
 };
-use log::{error, info};
 use std::sync::Arc;
+use tracing::{error, info};
 use wgpu::util::DeviceExt;
 use winit::{
     event_loop::EventLoop,
     window::{Window, WindowBuilder},
 };
 
-use glam::{Mat4, Vec3};
+use ultraviolet::{Mat4, Vec3};
 
 pub use wgpu::Device;
 
@@ -264,12 +264,12 @@ impl Renderer {
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilStateDescriptor{
+                stencil: wgpu::StencilStateDescriptor {
                     front: wgpu::StencilStateFaceDescriptor::IGNORE,
                     back: wgpu::StencilStateFaceDescriptor::IGNORE,
                     read_mask: 0,
                     write_mask: 0,
-                }
+                },
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
@@ -359,12 +359,12 @@ impl Renderer {
                     format: Texture::DEPTH_FORMAT,
                     depth_write_enabled: false,
                     depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilStateDescriptor{
+                    stencil: wgpu::StencilStateDescriptor {
                         front: wgpu::StencilStateFaceDescriptor::IGNORE,
                         back: wgpu::StencilStateFaceDescriptor::IGNORE,
                         read_mask: 0,
                         write_mask: 0,
-                    }
+                    },
                 }),
                 vertex_state: wgpu::VertexStateDescriptor {
                     index_format: wgpu::IndexFormat::Uint16,
@@ -554,47 +554,41 @@ impl Renderer {
                         wgpu::RenderPassColorAttachmentDescriptor {
                             attachment: &frame.output.view,
                             resolve_target: None,
-                            ops: wgpu::Operations{
-                                load: wgpu::LoadOp::Clear(
-                                    wgpu::Color {
-                                        r: 0.1,
-                                        g: 0.2,
-                                        b: 0.3,
-                                        a: 1.0,
-                                    },
-                                ),
-                                store: true
-                            }
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: 0.1,
+                                    g: 0.2,
+                                    b: 0.3,
+                                    a: 1.0,
+                                }),
+                                store: true,
+                            },
                         },
                         wgpu::RenderPassColorAttachmentDescriptor {
                             attachment: &self.accumulator.view,
                             resolve_target: None,
-                            ops: wgpu::Operations{
-                                load: wgpu::LoadOp::Clear(
-                                    wgpu::Color {
-                                        r: 0.,
-                                        g: 0.,
-                                        b: 0.,
-                                        a: 0.,
-                                    },
-                                ),
-                                store: true
-                            }
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: 0.,
+                                    g: 0.,
+                                    b: 0.,
+                                    a: 0.,
+                                }),
+                                store: true,
+                            },
                         },
                         wgpu::RenderPassColorAttachmentDescriptor {
                             attachment: &self.revealage.view,
                             resolve_target: None,
-                            ops: wgpu::Operations{
-                                load: wgpu::LoadOp::Clear(
-                                    wgpu::Color {
-                                        r: 1.,
-                                        g: 0.,
-                                        b: 0.,
-                                        a: 0.,
-                                    },
-                                ),
-                                store: true
-                            }
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color {
+                                    r: 1.,
+                                    g: 0.,
+                                    b: 0.,
+                                    a: 0.,
+                                }),
+                                store: true,
+                            },
                         },
                     ],
                     depth_stencil_attachment: Some(
@@ -630,11 +624,13 @@ impl Renderer {
         if let Some(encoder) = self.encoder.as_mut() {
             if let Some(frame) = self.frame.as_mut() {
                 self.uniforms.update_model(*position);
-                let staging_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Staging buffer"),
-                    contents: bytemuck::cast_slice(&[self.uniforms]),
-                    usage: wgpu::BufferUsage::COPY_SRC,
-                });
+                let staging_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Staging buffer"),
+                            contents: bytemuck::cast_slice(&[self.uniforms]),
+                            usage: wgpu::BufferUsage::COPY_SRC,
+                        });
 
                 encoder.copy_buffer_to_buffer(
                     &staging_buffer,
@@ -648,10 +644,10 @@ impl Renderer {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &frame.output.view,
                         resolve_target: None,
-                        ops: wgpu::Operations{
+                        ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
-                            store: true
-                        }
+                            store: true,
+                        },
                     }],
                     depth_stencil_attachment: Some(
                         wgpu::RenderPassDepthStencilAttachmentDescriptor {
@@ -687,11 +683,13 @@ impl Renderer {
     fn draw_transparent(&mut self, position: &Vec3, mesh: &Mesh) {
         if let Some(encoder) = self.encoder.as_mut() {
             self.uniforms.update_model(*position);
-            let staging_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Staging buffer"),
-                contents: bytemuck::cast_slice(&[self.uniforms]),
-                usage: wgpu::BufferUsage::COPY_SRC,
-            });
+            let staging_buffer =
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Staging buffer"),
+                        contents: bytemuck::cast_slice(&[self.uniforms]),
+                        usage: wgpu::BufferUsage::COPY_SRC,
+                    });
 
             encoder.copy_buffer_to_buffer(
                 &staging_buffer,
@@ -706,30 +704,30 @@ impl Renderer {
                     wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &self.accumulator.view,
                         resolve_target: None,
-                        ops: wgpu::Operations{
+                        ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
                             store: true,
-                        }
+                        },
                     },
                     wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &self.revealage.view,
                         resolve_target: None,
-                        ops: wgpu::Operations{
+                        ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
                             store: true,
-                        }
+                        },
                     },
                 ],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: &self.depth.view,
-                    depth_ops: Some(wgpu::Operations{
+                    depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
                     }),
-                    stencil_ops: Some(wgpu::Operations{
+                    stencil_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: true,
-                    })
+                    }),
                 }),
             });
 
@@ -753,10 +751,10 @@ impl Renderer {
                     color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                         attachment: &frame.output.view,
                         resolve_target: None,
-                        ops: wgpu::Operations{
+                        ops: wgpu::Operations {
                             load: wgpu::LoadOp::Load,
                             store: true,
-                        }
+                        },
                     }],
                     depth_stencil_attachment: None,
                 });

@@ -1,27 +1,39 @@
+use anyhow::{Context, Result};
 use image::GenericImageView;
 use std::path::Path;
-use anyhow::{Context, Result};
-use log::info;
+use tracing::info;
 
-pub struct Texture{
+pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
 
-impl Texture{
-    pub fn from_path<P: AsRef<Path>>(queue: &wgpu::Queue, device: &wgpu::Device, path: P) -> Result<Self, anyhow::Error>{
+impl Texture {
+    pub fn from_path<P: AsRef<Path>>(
+        queue: &wgpu::Queue,
+        device: &wgpu::Device,
+        path: P,
+    ) -> Result<Self, anyhow::Error> {
         info!("Loading texture from file: {:?}", path.as_ref());
         let img_bytes = std::fs::read(path).context("Couldn't load file")?;
         Texture::from_bytes(queue, &device, &img_bytes)
     }
 
-    pub fn from_bytes(queue: &wgpu::Queue, device: &wgpu::Device, bytes: &[u8]) -> Result<Self, anyhow::Error>{
+    pub fn from_bytes(
+        queue: &wgpu::Queue,
+        device: &wgpu::Device,
+        bytes: &[u8],
+    ) -> Result<Self, anyhow::Error> {
         let img = image::load_from_memory(bytes)?;
         Self::from_image(queue, device, &img)
     }
 
-    pub fn from_image(queue: &wgpu::Queue, device: &wgpu::Device, img: &image::DynamicImage)  -> Result<Self, anyhow::Error> {
+    pub fn from_image(
+        queue: &wgpu::Queue,
+        device: &wgpu::Device,
+        img: &image::DynamicImage,
+    ) -> Result<Self, anyhow::Error> {
         let rgba = img.as_rgba8().context("Couldn't load as RGBA8")?;
         let dim = img.dimensions();
 
@@ -30,8 +42,8 @@ impl Texture{
             height: dim.1,
             depth: 1,
         };
-        let texture = device.create_texture(&wgpu::TextureDescriptor{
-            label: Some("Tree tex"),
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Image Texture"),
             size: tex_size,
             mip_level_count: 1,
             sample_count: 1,
@@ -41,22 +53,22 @@ impl Texture{
         });
 
         queue.write_texture(
-            wgpu::TextureCopyView{
+            wgpu::TextureCopyView {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
             rgba,
-            wgpu::TextureDataLayout{
+            wgpu::TextureDataLayout {
                 offset: 0,
                 bytes_per_row: 4 * dim.0,
-                rows_per_image: dim.1,   
+                rows_per_image: dim.1,
             },
             tex_size,
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -69,18 +81,26 @@ impl Texture{
             ..Default::default()
         });
 
-        Ok(Self { texture, view, sampler })
+        Ok(Self {
+            texture,
+            view,
+            sampler,
+        })
     }
 
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-    pub fn create_depth(device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor, label: &str) -> Self{
-        let size = wgpu::Extent3d{
+    pub fn create_depth(
+        device: &wgpu::Device,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        label: &str,
+    ) -> Self {
+        let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
             depth: 1,
         };
 
-        let desc = wgpu::TextureDescriptor{
+        let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,
             mip_level_count: 1,
@@ -88,13 +108,13 @@ impl Texture{
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
-                |  wgpu::TextureUsage::SAMPLED
-                |  wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsage::SAMPLED
+                | wgpu::TextureUsage::COPY_SRC,
         };
 
         let texture = device.create_texture(&desc);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -107,17 +127,26 @@ impl Texture{
             ..Default::default()
         });
 
-        Self { texture, view, sampler }
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 
-    pub fn create_empty(device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor, format: wgpu::TextureFormat, label: &str) -> Self{
-        let size = wgpu::Extent3d{
+    pub fn create_empty(
+        device: &wgpu::Device,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        format: wgpu::TextureFormat,
+        label: &str,
+    ) -> Self {
+        let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
             depth: 1,
         };
 
-        let desc = wgpu::TextureDescriptor{
+        let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,
             mip_level_count: 1,
@@ -125,13 +154,13 @@ impl Texture{
             dimension: wgpu::TextureDimension::D2,
             format,
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
-                |  wgpu::TextureUsage::SAMPLED
-                |  wgpu::TextureUsage::COPY_DST,
+                | wgpu::TextureUsage::SAMPLED
+                | wgpu::TextureUsage::COPY_DST,
         };
 
         let texture = device.create_texture(&desc);
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -144,6 +173,10 @@ impl Texture{
             ..Default::default()
         });
 
-        Self { texture, view, sampler }
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 }
