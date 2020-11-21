@@ -16,7 +16,7 @@ use tracing::{error, info};
 use wgpu::util::DeviceExt;
 use winit::{
     event_loop::EventLoop,
-    window::{Window, WindowBuilder},
+    window::Window,
 };
 
 pub enum DrawType {
@@ -25,8 +25,6 @@ pub enum DrawType {
 }
 
 pub struct Renderer {
-    window: Window,
-
     surface: wgpu::Surface,
     device: Arc<wgpu::Device>,
     queue: wgpu::Queue,
@@ -54,24 +52,11 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(event_loop: &EventLoop<()>) -> Self {
-        let window = WindowBuilder::new()
-            .with_title("Voxel game")
-            .with_inner_size(winit::dpi::PhysicalSize::new(800, 600))
-            .build(&event_loop)
-            .expect("Couldn't create window");
-
-        // if let Err(e) = window.set_cursor_grab(true){
-        //     error!("Couldn't grab mouse, error: {}", e);
-        // }
-
-        // window.set_cursor_visible(false);
-        window.set_outer_position(winit::dpi::PhysicalPosition::new(0, 0));
-
+    pub async fn new(window: &Window, event_loop: &EventLoop<()>) -> Self {
         let instance = wgpu::Instance::new(wgpu::BackendBit::all());
 
         // TODO: Why do we need to use unsafe? What changed from the previous version of wgpu?
-        let surface = unsafe { instance.create_surface(&window) };
+        let surface = unsafe { instance.create_surface(window) };
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -445,8 +430,6 @@ impl Renderer {
         let device = Arc::new(device);
 
         Self {
-            window,
-
             surface,
             device,
             queue,
@@ -739,10 +722,6 @@ impl Renderer {
         } else {
             error!("[Final Pass] Failed to acquire encoder!");
         }
-    }
-
-    pub fn window(&self) -> &Window {
-        &self.window
     }
 
     pub fn device(&self) -> &wgpu::Device {
