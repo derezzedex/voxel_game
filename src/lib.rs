@@ -1,9 +1,9 @@
 mod game;
-mod render;
+mod renderer;
 mod utils;
 
 use crate::{
-    render::renderer::Renderer,
+    renderer::Renderer,
     utils::{camera::Camera, timer::Timer},
 };
 
@@ -61,7 +61,7 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        self.renderer.uniforms().update_view(&self.camera);
+        self.renderer.uniforms().update_view(self.camera.get_view());
     }
 
     pub fn render(&mut self) {

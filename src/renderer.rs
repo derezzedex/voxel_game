@@ -1,11 +1,16 @@
-use crate::{
-    render::{
-        mesh::{Mesh, Vertex},
-        shaders::Shaders,
-        texture::Texture,
-    },
-    utils::camera::Camera,
+pub mod mesh;
+pub mod shaders;
+pub mod texture;
+pub mod uniforms;
+
+use self::{
+    mesh::{Mesh, Vertex},
+    shaders::Shaders,
+    texture::Texture,
+    uniforms::Uniforms,
 };
+
+use ultraviolet::Vec3;
 use std::sync::Arc;
 use tracing::{error, info};
 use wgpu::util::DeviceExt;
@@ -13,41 +18,6 @@ use winit::{
     event_loop::EventLoop,
     window::{Window, WindowBuilder},
 };
-
-use ultraviolet::{Mat4, Vec3};
-
-pub use wgpu::Device;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Uniforms {
-    model: Mat4,
-    view: Mat4,
-    projection: Mat4,
-}
-
-impl Uniforms {
-    pub fn new() -> Self {
-        Self {
-            model: Mat4::from_translation(Vec3::new(0., 0., 0.1)),
-            view: Mat4::identity(),
-            projection: Mat4::identity(),
-        }
-    }
-
-    pub fn update_view(&mut self, camera: &Camera) {
-        self.view = camera.get_view();
-        self.projection = camera.get_projection();
-        // info!("[Uniforms] Updated: {:#?}", camera);
-    }
-
-    pub fn update_model(&mut self, model: Vec3) {
-        self.model = Mat4::from_translation(model);
-    }
-}
-
-unsafe impl bytemuck::Pod for Uniforms {}
-unsafe impl bytemuck::Zeroable for Uniforms {}
 
 pub enum DrawType {
     Opaque,
