@@ -33,7 +33,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     registry.setup();
     let registry = Arc::new(registry);
 
-    let mut terrain_manager = TerrainManager::new(&registry, 1);
+    let mut terrain_manager = TerrainManager::new(&registry);
     c.bench_function("Chunk generation (distance: 4, not multithreaded)", |b| b.iter(|| terrain_manager.setup()));
 
     let mut group = c.benchmark_group("Chunk generation (distance: 4, multithreaded)");

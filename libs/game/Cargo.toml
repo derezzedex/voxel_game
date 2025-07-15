@@ -22,7 +22,7 @@ harness = false
 
 [dependencies]
 engine = { path = "../engine" }
-cgmath = "*"
+cgmath = "0.17"
 image = "^0.23.2"
 rayon = "*"
 collision = "0.20.1"

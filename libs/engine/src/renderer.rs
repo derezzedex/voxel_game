@@ -83,10 +83,10 @@ impl Context {
             backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
             ..Default::default()
         };
-
+        
         let ui_path = Path::new("img").join("ui").join("crosshair.png");
         let ui_manager = UIManager::new(&display, &ui_path, image::ImageFormat::Png);
-
+        
         let frame = None;
         let mouse_grab = true;
         display.gl_window().window().grab_cursor(mouse_grab).expect("Couldn't grab the cursor!");

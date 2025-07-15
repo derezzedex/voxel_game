@@ -11,7 +11,7 @@ use cgmath::{Point3, Vector3};
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use uvth::{ThreadPool, ThreadPoolBuilder};
-use noise::{Fbm, NoiseFn, Seedable};
+use noise::{Fbm, NoiseFn, Perlin};
 
 use std::sync::Arc;
 use std::convert::TryFrom;
@@ -35,22 +35,21 @@ pub struct TerrainManager {
     pub threadpool: ThreadPool,
     pub mesher: ChunkMesher,
     pub meshes: ChunkMeshMap,
-    noise: Arc<Fbm>,
+    noise: Arc<Fbm<Perlin>>,
 }
 
 #[allow(dead_code)]
 impl TerrainManager {
-    pub fn new(registry: &Arc<Registry>, thread_number: usize) -> Self {
+    pub fn new(registry: &Arc<Registry>) -> Self {
         let chunks = Arc::new(ChunkMap::default());
         let meshes = ChunkMeshMap::default();
 
         let threadpool = ThreadPoolBuilder::new()
-            .num_threads(thread_number) // TODO: Measure performance difference on thread qtd change
             .name("TerrainManager".to_string())
             .build();
         let mesher = ChunkMesher::new();
 
-        let noise = Arc::new(Fbm::new().set_seed(10291302));
+        let noise = Arc::new(Fbm::new(10291302));
         let registry = registry.clone();
         let position = ChunkPosition::new(0, 1, 0);
 
@@ -276,7 +275,7 @@ impl TerrainManager {
         self.threadpool.execute(move || TerrainManager::generate_chunk(position, chunks, noise, registry));
     }
 
-    fn generate_chunk(position: ChunkPosition, chunks: Arc<ChunkMap>, noise: Arc<Fbm>, registry: Arc<Registry>) {
+    fn generate_chunk(position: ChunkPosition, chunks: Arc<ChunkMap>, noise: Arc<Fbm<Perlin>>, registry: Arc<Registry>) {
         let mut chunk = Chunk::new(0);
         let grass = registry.block_registry().id_of("grass").unwrap_or(1);
         let sand = registry.block_registry().id_of("sand").unwrap_or(1);

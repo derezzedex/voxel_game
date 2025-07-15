@@ -40,7 +40,7 @@ impl Game {
 
         let camera = Camera::new([8., 0., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
-
+        
         let texture_path = Path::new("res")
             .join("img")
             .join("texture")
@@ -71,7 +71,7 @@ impl Game {
         let mut registry = Registry::new();
         registry.setup();
         let registry = Arc::new(registry);
-        let terrain_manager = TerrainManager::new(&registry, 1);
+        let terrain_manager = TerrainManager::new(&registry);
 
         Self {
             context,
@@ -120,7 +120,7 @@ impl Game {
 
         self.terrain_manager.setup_threaded();//self.context.get_display());
         println!("Expecting: {:?}", (LOAD_DISTANCE as usize * 2 + 1).pow(3));
-        while self.terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) { }
+        // while self.terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) { }
         // let mut received = 0;
         // while received < (LOAD_DISTANCE * 2 + 1).pow(3){
         //     if let Ok(_) = self.terrain_manager.mesher.receive() { received += 1; println!("Received: {:?}", received); }
