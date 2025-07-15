@@ -66,7 +66,6 @@ impl Direction{
     }
 }
 
-#[allow(illegal_floating_point_literal_pattern)]
 impl From<Vector3<f32>> for Direction{
     fn from(v: Vector3<f32>) -> Self {
         match v.normalize(){

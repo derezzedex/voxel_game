@@ -134,7 +134,7 @@ impl Game {
                 .ecs_manager
                 .get_mut_world()
                 .write_storage::<components::Camera>();
-            let mut camera = camera_storage
+            let camera = camera_storage
                 .get_mut(self.player)
                 .expect("Failed to get Player Camera");
 
@@ -217,42 +217,42 @@ impl Game {
                                     }
                                     engine::glium::glutin::VirtualKeyCode::W => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.forward = pressed;
                                     }
                                     engine::glium::glutin::VirtualKeyCode::S => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.backward = pressed;
                                     }
                                     engine::glium::glutin::VirtualKeyCode::A => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.left = pressed;
                                     }
                                     engine::glium::glutin::VirtualKeyCode::D => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.right = pressed;
                                     }
                                     engine::glium::glutin::VirtualKeyCode::Space => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.up = pressed;
                                     }
                                     engine::glium::glutin::VirtualKeyCode::LShift => {
                                         let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let mut controller = controller_storage
+                                        let controller = controller_storage
                                             .get_mut(self.player)
                                             .expect("Failed to get Player Controller");
                                         controller.down = pressed;

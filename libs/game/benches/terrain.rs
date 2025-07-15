@@ -1,9 +1,7 @@
-use game::terrain::manager::LOAD_DISTANCE;
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 use game::terrain::manager::TerrainManager;
 use game::registry::Registry;
 use std::sync::Arc;
-use cgmath::Vector3;
 
 #[derive(Debug, Copy, Clone)]
 struct Position{
@@ -33,7 +31,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     registry.setup();
     let registry = Arc::new(registry);
 
-    let mut terrain_manager = TerrainManager::new(&registry);
+    let mut terrain_manager = TerrainManager::new(&registry).with_threads(1);
     c.bench_function("Chunk generation (distance: 4, not multithreaded)", |b| b.iter(|| terrain_manager.setup()));
 
     let mut group = c.benchmark_group("Chunk generation (distance: 4, multithreaded)");
