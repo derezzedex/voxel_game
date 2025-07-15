@@ -86,7 +86,7 @@ impl UIManager {
         let bytes = Cursor::new(&data[..]);
         let image = image::load(bytes, image_type)
             .expect("Couldn't load image!")
-            .to_rgba();
+            .to_rgba8();
         let dimensions = image.dimensions();
         let raw_texture =
             glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), dimensions);

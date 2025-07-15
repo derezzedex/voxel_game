@@ -27,7 +27,7 @@ impl TextureStorage {
         let bytes = Cursor::new(&data[..]);
         let image = image::load(bytes, image_type)
             .expect("Couldn't load image!")
-            .to_rgba();
+            .to_rgba8();
         let image_dimensions = image.dimensions();
         let mut textures = Vec::new();
 

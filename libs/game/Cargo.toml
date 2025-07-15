@@ -22,13 +22,11 @@ harness = false
 
 [dependencies]
 engine = { path = "../engine" }
-cgmath = "0.17"
-image = "^0.23.2"
-rayon = "*"
-collision = "0.20.1"
-specs = "*"
-specs-derive = "*"
-noise = "*"
-uvth = "*"
-dashmap = "*"
-slice-deque = "*"
+cgmath = "0.18"
+image = "0.25"
+rayon = "1.10"
+collision = { git = "https://github.com/rustgd/collision-rs" } # needed for `cgmath = 0.18`
+specs = { version = "0.20", features = ["derive"] }
+noise = "0.9"
+uvth = "4.0"
+dashmap = "6.1"

@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 glium = "0.22"
-cgmath = "0.17"
-image = "^0.23.2"
+cgmath = "0.18"
+image = "0.25"
