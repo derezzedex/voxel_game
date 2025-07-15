@@ -1,5 +1,6 @@
 use crate::{DebugVertex, Direction, Vertex};
 use cgmath::Point3;
+use glium::glutin::surface::WindowSurface;
 
 pub const UNIT: f32 = 1.;
 pub const HALF: f32 = UNIT / 2.;
@@ -234,7 +235,7 @@ impl MeshData {
         self.add(vertices, indices);
     }
 
-    pub fn build(&self, display: &glium::Display) -> Mesh {
+    pub fn build(&self, display: &glium::Display<WindowSurface>) -> Mesh {
         let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])
             .expect("Couldn't create VB");
         let ib = glium::IndexBuffer::new(
@@ -283,7 +284,7 @@ impl DebugMeshData {
 
     pub fn build(
         &self,
-        display: &glium::Display,
+        display: &glium::Display<WindowSurface>,
         primitive: glium::index::PrimitiveType,
     ) -> DebugMesh {
         let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])

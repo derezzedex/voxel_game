@@ -3,6 +3,10 @@ use crate::registry::Registry;
 use crate::terrain::chunk::{ChunkPosition, CHUNKSIZE};
 use crate::terrain::manager::TerrainManager;
 use crate::terrain::manager::LOAD_DISTANCE;
+use engine::glium::winit;
+use engine::glium::winit::event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent};
+use engine::glium::winit::event_loop::EventLoop;
+use engine::glium::winit::keyboard::{KeyCode, PhysicalKey};
 use engine::renderer::Context;
 use engine::utils::camera::Camera;
 use engine::utils::clock::*;
@@ -33,8 +37,8 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(title: &str) -> Self {
-        let context = Context::new(title, "vertex.glsl", "fragment.glsl");
+    pub fn new(event_loop: &EventLoop<()>, title: &str) -> Self {
+        let context = Context::new(event_loop, title, "vertex.glsl", "fragment.glsl");
         let timer = Clock::new(16);
         let running = true;
 
@@ -45,12 +49,8 @@ impl Game {
             .join("img")
             .join("texture")
             .join("atlas.png");
-        let texture_storage = TextureStorage::new(
-            context.get_display(),
-            &texture_path,
-            image::ImageFormat::Png,
-            16,
-        );
+        let texture_storage =
+            TextureStorage::new(&context.display, &texture_path, image::ImageFormat::Png, 16);
 
         let player_pos = components::Position(camera.get_position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
@@ -86,25 +86,48 @@ impl Game {
         }
     }
 
-    pub fn run(&mut self) {
-        self.setup();
+    pub fn run(title: &str) {
+        let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
+        let mut game = Self::new(&event_loop, title);
+        game.setup();
 
-        while self.running {
-            self.tick();
-        }
+        #[allow(deprecated)]
+        event_loop
+            .run(move |event, target| match event {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => {
+                    target.exit();
+                }
+                Event::WindowEvent {
+                    event: WindowEvent::RedrawRequested,
+                    ..
+                } => {
+                    game.render();
+                }
+                Event::AboutToWait => {
+                    game.tick();
+
+                    if !game.running {
+                        target.exit();
+                    }
+
+                    game.context.window.request_redraw();
+                }
+                event => game.handle_input(event),
+            })
+            .unwrap();
     }
 
     pub fn tick(&mut self) {
         self.timer.readjust();
-
-        self.handle_input();
 
         while self.timer.should_update() {
             self.update();
             self.timer.update();
         }
 
-        self.render();
         self.ecs_manager.maintain_world();
     }
 
@@ -159,140 +182,130 @@ impl Game {
         self.terrain_manager.update(cam_chunk_pos);
     }
 
-    pub fn handle_input(&mut self) {
-        let events = self.context.poll_events();
-        for event in &events {
-            match event {
-                engine::glium::glutin::Event::DeviceEvent { event, .. } => match event {
-                    engine::glium::glutin::DeviceEvent::MouseMotion { delta } => {
-                        self.camera.handle_mouse(delta.0, delta.1);
-                        self.context.reset_mouse_position();
-                    }
-                    _ => (),
-                },
-                engine::glium::glutin::Event::WindowEvent { event, .. } => match event {
-                    engine::glium::glutin::WindowEvent::CloseRequested => self.running = false,
-                    engine::glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        if *state == engine::glium::glutin::ElementState::Released {
-                            let position = self
-                                .camera
-                                .get_position()
-                                .cast::<f32>()
-                                .expect("f64 to f32 failed");
-                            let front = self
-                                .camera
-                                .get_front()
-                                .cast::<f32>()
-                                .expect("f64 to f32 failed");
-                            let mut ray = VoxelRay::new(position, position + front, 8);
+    pub fn handle_input(&mut self, event: winit::event::Event<()>) {
+        match event {
+            Event::DeviceEvent { event, .. } => match event {
+                DeviceEvent::MouseMotion { delta } => {
+                    self.camera.handle_mouse(delta.0, delta.1);
+                    self.context.reset_mouse_position();
+                }
+                _ => (),
+            },
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => self.running = false,
+                WindowEvent::MouseInput { state, button, .. } => {
+                    if state == ElementState::Released {
+                        let position = self
+                            .camera
+                            .get_position()
+                            .cast::<f32>()
+                            .expect("f64 to f32 failed");
+                        let front = self
+                            .camera
+                            .get_front()
+                            .cast::<f32>()
+                            .expect("f64 to f32 failed");
+                        let mut ray = VoxelRay::new(position, position + front, 8);
 
-                            if let Some((mut position, face)) = ray.until(|b, _f| {
-                                if let Some((block, _)) =
-                                    self.terrain_manager.block_at(b.x, b.y, b.z)
-                                {
-                                    if block != 0 {
-                                        return true;
-                                    }
+                        if let Some((mut position, face)) = ray.until(|b, _f| {
+                            if let Some((block, _)) = self.terrain_manager.block_at(b.x, b.y, b.z) {
+                                if block != 0 {
+                                    return true;
                                 }
-                                false
-                            }) {
-                                let replacer =
-                                    if *button == engine::glium::glutin::MouseButton::Right {
-                                        position +=
-                                            face.cast::<f32>().expect("Couldn't cast f64 to f32");
-                                        self.terrain_manager
-                                            .get_registry()
-                                            .block_registry()
-                                            .id_of("water")
-                                            .expect("couldn't grab water id")
-                                    } else if *button == engine::glium::glutin::MouseButton::Left {
-                                        0
-                                    } else {
-                                        self.terrain_manager
-                                            .get_registry()
-                                            .block_registry()
-                                            .id_of("glass")
-                                            .expect("couldn't grab water id")
-                                    };
-                                // let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
-
+                            }
+                            false
+                        }) {
+                            let replacer = if button == MouseButton::Right {
+                                position += face.cast::<f32>().expect("Couldn't cast f64 to f32");
                                 self.terrain_manager
-                                    .set_block(position.x, position.y, position.z, replacer);
+                                    .get_registry()
+                                    .block_registry()
+                                    .id_of("water")
+                                    .expect("couldn't grab water id")
+                            } else if button == MouseButton::Left {
+                                0
+                            } else {
+                                self.terrain_manager
+                                    .get_registry()
+                                    .block_registry()
+                                    .id_of("glass")
+                                    .expect("couldn't grab water id")
+                            };
+                            // let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
+
+                            self.terrain_manager
+                                .set_block(position.x, position.y, position.z, replacer);
+                        }
+                    }
+                }
+                WindowEvent::KeyboardInput { event: input, .. } => {
+                    let pressed = match input.state {
+                        ElementState::Pressed => true,
+                        _ => false,
+                    };
+                    match input.physical_key {
+                        PhysicalKey::Code(KeyCode::KeyP) => {
+                            if pressed {
+                                self.context.grab_mouse();
                             }
                         }
-                    }
-                    engine::glium::glutin::WindowEvent::KeyboardInput { input, .. } => {
-                        let pressed = match input.state {
-                            engine::glium::glutin::ElementState::Pressed => true,
-                            _ => false,
-                        };
-                        match input.virtual_keycode {
-                            Some(key) => match key {
-                                engine::glium::glutin::VirtualKeyCode::P => {
-                                    if pressed {
-                                        self.context.grab_mouse();
-                                    }
-                                }
-                                engine::glium::glutin::VirtualKeyCode::Escape => {
-                                    self.running = false;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::W => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.forward = pressed;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::S => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.backward = pressed;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::A => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.left = pressed;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::D => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.right = pressed;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::Space => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.up = pressed;
-                                }
-                                engine::glium::glutin::VirtualKeyCode::LShift => {
-                                    let mut controller_storage =
-                                        self.ecs_manager.write_storage::<components::Controller>();
-                                    let controller = controller_storage
-                                        .get_mut(self.player)
-                                        .expect("Failed to get Player Controller");
-                                    controller.down = pressed;
-                                }
-                                _ => (),
-                            },
-                            None => (),
+                        PhysicalKey::Code(KeyCode::Escape) => {
+                            self.running = false;
                         }
+                        PhysicalKey::Code(KeyCode::KeyW) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.forward = pressed;
+                        }
+                        PhysicalKey::Code(KeyCode::KeyS) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.backward = pressed;
+                        }
+                        PhysicalKey::Code(KeyCode::KeyA) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.left = pressed;
+                        }
+                        PhysicalKey::Code(KeyCode::KeyD) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.right = pressed;
+                        }
+                        PhysicalKey::Code(KeyCode::Space) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.up = pressed;
+                        }
+                        PhysicalKey::Code(KeyCode::ShiftLeft) => {
+                            let mut controller_storage =
+                                self.ecs_manager.write_storage::<components::Controller>();
+                            let controller = controller_storage
+                                .get_mut(self.player)
+                                .expect("Failed to get Player Controller");
+                            controller.down = pressed;
+                        }
+                        _ => (),
                     }
-                    _ => (),
-                },
+                }
                 _ => (),
-            }
+            },
+            _ => (),
         }
     }
 
@@ -331,7 +344,7 @@ impl Game {
         let position = self.camera.get_position();
 
         self.terrain_manager
-            .mesh_chunks(self.context.get_display(), self.timer.get_timer());
+            .mesh_chunks(&self.context.display, self.timer.get_timer());
         let mut meshes = self.terrain_manager.get_meshes().iter().collect::<Vec<_>>();
         //TODO: Benchmark this function and compare with render distance
         meshes.sort_by(|c1, c2| {

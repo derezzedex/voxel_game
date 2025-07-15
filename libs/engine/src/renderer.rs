@@ -4,8 +4,12 @@ use crate::utils::filesystem;
 use crate::{DebugVertex, Vertex};
 use cgmath::Point3;
 
+use glium::backend::glutin::SimpleWindowBuilder;
+use glium::glutin::surface::WindowSurface;
 use glium::uniforms::{AsUniformValue, Uniforms};
-use glium::{glutin, Surface};
+use glium::winit::event_loop::EventLoop;
+use glium::winit::window::CursorGrabMode;
+use glium::{glutin, winit, Surface};
 use std::fs;
 use std::path::Path;
 
@@ -13,38 +17,34 @@ pub const DEFAULT_WIDTH: u32 = 1024;
 pub const DEFAULT_HEIGHT: u32 = 768;
 
 pub struct Context {
-    pub events_loop: glium::glutin::EventsLoop,
-    pub display: glium::Display,
+    pub window: winit::window::Window,
+    pub display: glium::Display<WindowSurface>,
     chunk_program: glium::Program,
     debug_program: glium::Program,
     ui_manager: UIManager,
     window_dimensions: (u32, u32),
-    mouse_grab: bool,
+    mouse_grab: winit::window::CursorGrabMode,
     render_params: glium::DrawParameters<'static>,
     pub frame: Option<glium::Frame>,
 }
 
 #[allow(dead_code)]
 impl Context {
-    pub fn new(title: &str, vert: &str, frag: &str) -> Self {
+    pub fn new(event_loop: &EventLoop<()>, title: &str, vert: &str, frag: &str) -> Self {
         let window_dimensions = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-        let events_loop = glutin::EventsLoop::new();
-        let wb = glutin::WindowBuilder::new()
-            .with_title(title)
-            .with_dimensions(window_dimensions.into());
-        let cb = glutin::ContextBuilder::new()
-            .with_srgb(true)
-            .with_depth_buffer(24)
-            .with_multisampling(4)
-            .with_vsync(true);
-        let display =
-            glium::Display::new(wb, cb, &events_loop).expect("Couldn't create the display!");
+        let config = glutin::config::ConfigTemplateBuilder::new()
+            .with_depth_size(24)
+            .with_multisampling(4);
 
-        display
-            .gl_window()
-            .window()
-            .set_position(glium::glutin::dpi::LogicalPosition::new(0., 0.));
+        let (window, display) = SimpleWindowBuilder::new()
+            .with_title(title)
+            .with_inner_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+            .with_vsync(true)
+            .with_config_template_builder(config)
+            .build(event_loop);
+
+        window.set_outer_position(winit::dpi::LogicalPosition::new(0, 0));
 
         // TODO: Fix this ugly solution to the current file retrieving method
         let cargo = filesystem::cargo_path();
@@ -56,9 +56,20 @@ impl Context {
             .expect("Something went wrong reading the file");
         let fragment_shader_src = fs::read_to_string(&shader_path.join(frag))
             .expect("Something went wrong reading the file");
-        let chunk_program =
-            glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
-                .unwrap();
+        let chunk_program = glium::Program::new(
+            &display,
+            glium::program::ProgramCreationInput::SourceCode {
+                vertex_shader: &vertex_shader_src,
+                fragment_shader: &fragment_shader_src,
+                geometry_shader: None,
+                tessellation_control_shader: None,
+                tessellation_evaluation_shader: None,
+                transform_feedback_varyings: None,
+                outputs_srgb: false,
+                uses_point_size: false,
+            },
+        )
+        .unwrap();
 
         // DEBUG SHADER
         let vertex_shader_src = fs::read_to_string(&shader_path.join("debug").join("vertex.glsl"))
@@ -85,16 +96,14 @@ impl Context {
         let ui_manager = UIManager::new(&display, &ui_path, image::ImageFormat::Png);
 
         let frame = None;
-        let mouse_grab = true;
-        display
-            .gl_window()
-            .window()
-            .grab_cursor(mouse_grab)
+        let mouse_grab = CursorGrabMode::Locked;
+        window
+            .set_cursor_grab(mouse_grab)
             .expect("Couldn't grab the cursor!");
-        display.gl_window().window().hide_cursor(mouse_grab);
+        window.set_cursor_visible(matches!(mouse_grab, CursorGrabMode::Locked));
 
         Self {
-            events_loop,
+            window,
             display,
             ui_manager,
             window_dimensions,
@@ -107,37 +116,28 @@ impl Context {
     }
 
     pub fn grab_mouse(&mut self) {
-        self.mouse_grab = !self.mouse_grab;
-        self.display
-            .gl_window()
-            .window()
-            .grab_cursor(self.mouse_grab)
+        self.mouse_grab = if matches!(self.mouse_grab, CursorGrabMode::Locked) {
+            CursorGrabMode::None
+        } else {
+            CursorGrabMode::Confined
+        };
+        self.window
+            .set_cursor_grab(self.mouse_grab)
             .expect("Couldn't grab the cursor!");
-        self.display
-            .gl_window()
-            .window()
-            .hide_cursor(self.mouse_grab);
+        self.window
+            .set_cursor_visible(matches!(self.mouse_grab, CursorGrabMode::Locked));
     }
 
     pub fn reset_mouse_position(&mut self) {
-        if self.mouse_grab {
+        if matches!(self.mouse_grab, CursorGrabMode::Locked) {
             let (width, height) = self.window_dimensions();
-            self.display
-                .gl_window()
-                .window()
-                .set_cursor_position((width as f64 / 2., height as f64 / 2.).into())
+            self.window
+                .set_cursor_position(winit::dpi::LogicalPosition::new(
+                    width as f64 / 2.,
+                    height as f64 / 2.,
+                ))
                 .expect("Couldn't set the cursor position!");
         }
-    }
-
-    pub fn get_display(&self) -> &glium::Display {
-        &self.display
-    }
-
-    pub fn poll_events(&mut self) -> Vec<glutin::Event> {
-        let mut events = Vec::new();
-        self.events_loop.poll_events(|e| events.push(e));
-        events
     }
 
     pub fn get_frame(&mut self) -> &mut glium::Frame {
@@ -158,7 +158,7 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .clear_color_and_depth((color[0], color[1], color[2], color[3]), 1.0);
+            .clear_color_srgb_and_depth((color[0], color[1], color[2], color[3]), 1.0);
     }
 
     pub fn draw_with_params<T: AsUniformValue, R: Uniforms>(
@@ -236,7 +236,7 @@ impl Context {
             DebugVertex::new([to.x, to.y, to.z], color),
         ];
         mesh.add(vertices, vec![0, 1]);
-        let mesh = mesh.build(self.get_display(), glium::index::PrimitiveType::LinesList);
+        let mesh = mesh.build(&self.display, glium::index::PrimitiveType::LinesList);
 
         let render_params = glium::DrawParameters {
             line_width: Some(4.),
@@ -289,7 +289,7 @@ impl Context {
                 2, 6,
             ],
         );
-        let mesh = mesh.build(self.get_display(), glium::index::PrimitiveType::LinesList);
+        let mesh = mesh.build(&self.display, glium::index::PrimitiveType::LinesList);
 
         let render_params = glium::DrawParameters {
             depth: glium::Depth {
@@ -316,7 +316,7 @@ impl Context {
     }
 
     pub fn new_frame(&mut self) {
-        let target = self.get_display().draw();
+        let target = self.display.draw();
         self.frame = Some(target);
     }
 

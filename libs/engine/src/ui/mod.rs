@@ -1,3 +1,5 @@
+use glium::glutin::surface::WindowSurface;
+
 use crate::utils::filesystem;
 use std::fs;
 use std::io::Cursor;
@@ -42,7 +44,7 @@ impl UIMeshData {
         self.indices.extend_from_slice(&indices);
     }
 
-    pub fn build(&self, display: &glium::Display) -> UIMesh {
+    pub fn build(&self, display: &glium::Display<WindowSurface>) -> UIMesh {
         let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])
             .expect("Couldn't create VB");
         let ib = glium::IndexBuffer::new(
@@ -78,7 +80,11 @@ pub struct UIManager {
 }
 
 impl UIManager {
-    pub fn new(display: &glium::Display, path: &Path, image_type: image::ImageFormat) -> Self {
+    pub fn new(
+        display: &glium::Display<WindowSurface>,
+        path: &Path,
+        image_type: image::ImageFormat,
+    ) -> Self {
         let cargo = filesystem::cargo_path();
         let path = cargo.join("res").join(path);
 

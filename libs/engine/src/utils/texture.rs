@@ -1,4 +1,5 @@
 use crate::utils::filesystem;
+use glium::glutin::surface::WindowSurface;
 use image::GenericImageView;
 use std::io::Cursor;
 use std::path::Path;
@@ -15,7 +16,7 @@ pub struct TextureStorage {
 
 impl TextureStorage {
     pub fn new(
-        display: &glium::Display,
+        display: &glium::Display<WindowSurface>,
         image_path: &Path,
         image_type: image::ImageFormat,
         tile_size: u32,
