@@ -1,7 +1,7 @@
+pub mod block;
 pub mod chunk;
 pub mod manager;
-pub mod block;
 pub mod mesher;
 
-pub use chunk::{ChunkPosition, Chunk, CHUNKSIZE, FromWorld};
-pub use manager::{ChunkMap};
+pub use chunk::{Chunk, ChunkPosition, FromWorld, CHUNKSIZE};
+pub use manager::ChunkMap;

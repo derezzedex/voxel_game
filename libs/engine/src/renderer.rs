@@ -1,8 +1,8 @@
-use cgmath::Point3;
-use crate::{DebugVertex, Vertex};
+use crate::mesh::DebugMeshData;
 use crate::ui::UIManager;
-use crate::mesh::{DebugMeshData};
 use crate::utils::filesystem;
+use crate::{DebugVertex, Vertex};
+use cgmath::Point3;
 
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::{glutin, Surface};
@@ -52,20 +52,17 @@ impl Context {
         println!("Shader directory: {:?}", &shader_path);
 
         // CHUNK SHADER
-        let vertex_shader_src =
-            fs::read_to_string(&shader_path.join(vert))
-                .expect("Something went wrong reading the file");
-        let fragment_shader_src =
-            fs::read_to_string(&shader_path.join(frag))
-                .expect("Something went wrong reading the file");
+        let vertex_shader_src = fs::read_to_string(&shader_path.join(vert))
+            .expect("Something went wrong reading the file");
+        let fragment_shader_src = fs::read_to_string(&shader_path.join(frag))
+            .expect("Something went wrong reading the file");
         let chunk_program =
             glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None)
                 .unwrap();
 
         // DEBUG SHADER
-        let vertex_shader_src =
-            fs::read_to_string(&shader_path.join("debug").join("vertex.glsl"))
-                .expect("Something went wrong reading the file");
+        let vertex_shader_src = fs::read_to_string(&shader_path.join("debug").join("vertex.glsl"))
+            .expect("Something went wrong reading the file");
         let fragment_shader_src =
             fs::read_to_string(&shader_path.join("debug").join("fragment.glsl"))
                 .expect("Something went wrong reading the file");
@@ -83,13 +80,17 @@ impl Context {
             backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
             ..Default::default()
         };
-        
+
         let ui_path = Path::new("img").join("ui").join("crosshair.png");
         let ui_manager = UIManager::new(&display, &ui_path, image::ImageFormat::Png);
-        
+
         let frame = None;
         let mouse_grab = true;
-        display.gl_window().window().grab_cursor(mouse_grab).expect("Couldn't grab the cursor!");
+        display
+            .gl_window()
+            .window()
+            .grab_cursor(mouse_grab)
+            .expect("Couldn't grab the cursor!");
         display.gl_window().window().hide_cursor(mouse_grab);
 
         Self {
@@ -165,7 +166,7 @@ impl Context {
         vb: &glium::VertexBuffer<Vertex>,
         ib: &glium::IndexBuffer<u32>,
         u: &glium::uniforms::UniformsStorage<T, R>,
-        r: glium::DrawParameters
+        r: glium::DrawParameters,
     ) {
         self.frame
             .as_mut()
@@ -187,7 +188,7 @@ impl Context {
             .unwrap();
     }
 
-    pub fn draw_ui(&mut self){
+    pub fn draw_ui(&mut self) {
         let mesh = self.ui_manager.get_mesh();
         let texture = self.ui_manager.get_sampled();
         let projection: [[f32; 4]; 4] = cgmath::ortho(0., 10., 10., 0., 0., 1.).into();
@@ -198,7 +199,7 @@ impl Context {
         //     println!("{:?}", i);
         // }
 
-        let uniforms = uniform!{
+        let uniforms = uniform! {
             t: texture,
             p: projection,
             m: model
@@ -212,11 +213,23 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .draw(mesh.get_vb(), mesh.get_ib(), self.ui_manager.get_shader(), &uniforms, &render_params)
+            .draw(
+                mesh.get_vb(),
+                mesh.get_ib(),
+                self.ui_manager.get_shader(),
+                &uniforms,
+                &render_params,
+            )
             .unwrap();
     }
 
-    pub fn draw_line<T: AsUniformValue, R: Uniforms>(&mut self, from: Point3<f32>, to: Point3<f32>, color: [f32; 4], uniforms: &glium::uniforms::UniformsStorage<T, R>){
+    pub fn draw_line<T: AsUniformValue, R: Uniforms>(
+        &mut self,
+        from: Point3<f32>,
+        to: Point3<f32>,
+        color: [f32; 4],
+        uniforms: &glium::uniforms::UniformsStorage<T, R>,
+    ) {
         let mut mesh = DebugMeshData::new();
         let vertices = vec![
             DebugVertex::new([from.x, from.y, from.z], color),
@@ -233,49 +246,48 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .draw(mesh.get_vb(), mesh.get_ib(), &self.debug_program, uniforms, &render_params)
+            .draw(
+                mesh.get_vb(),
+                mesh.get_ib(),
+                &self.debug_program,
+                uniforms,
+                &render_params,
+            )
             .unwrap();
     }
 
-    pub fn draw_hitbox<T: AsUniformValue, R: Uniforms>(&mut self, min: Point3<f32>, max: Point3<f32>, color: [f32; 4], uniforms: &glium::uniforms::UniformsStorage<T, R>){
+    pub fn draw_hitbox<T: AsUniformValue, R: Uniforms>(
+        &mut self,
+        min: Point3<f32>,
+        max: Point3<f32>,
+        color: [f32; 4],
+        uniforms: &glium::uniforms::UniformsStorage<T, R>,
+    ) {
         let mut mesh = DebugMeshData::new();
-        let min = min.map(|p| p - (1./1000.));
-        let max = max.map(|p| p + (1./1000.));
+        let min = min.map(|p| p - (1. / 1000.));
+        let max = max.map(|p| p + (1. / 1000.));
         mesh.add(
-        vec![
-            // back
-            DebugVertex::new([min.x, min.y, min.z], color), // 0, back-left-bottom
-            DebugVertex::new([min.x, min.y, max.z], color), // 1, back-right-bottom
-            DebugVertex::new([min.x, max.y, max.z], color), // 2, back-right-top
-            DebugVertex::new([min.x, max.y, min.z], color), // 3, back-left-top
-            // front
-            DebugVertex::new([max.x, min.y, min.z], color), // 4, front-left-bottom
-            DebugVertex::new([max.x, min.y, max.z], color), // 5, front-right-bottom
-            DebugVertex::new([max.x, max.y, max.z], color), // 6, front-right-top
-            DebugVertex::new([max.x, max.y, min.z], color), // 7, front-left-top
-        ],
-        vec![
-            // back
-            0, 1,
-            0, 3,
-            1, 2,
-            2, 3,
-
-            //front
-            4, 5,
-            4, 7,
-            5, 6,
-            6, 7,
-
-            // left-bottom
-            0, 4,
-            // left-top
-            3, 7,
-            // right-bottom
-            1, 5,
-            // right-top
-            2, 6,
-        ]
+            vec![
+                // back
+                DebugVertex::new([min.x, min.y, min.z], color), // 0, back-left-bottom
+                DebugVertex::new([min.x, min.y, max.z], color), // 1, back-right-bottom
+                DebugVertex::new([min.x, max.y, max.z], color), // 2, back-right-top
+                DebugVertex::new([min.x, max.y, min.z], color), // 3, back-left-top
+                // front
+                DebugVertex::new([max.x, min.y, min.z], color), // 4, front-left-bottom
+                DebugVertex::new([max.x, min.y, max.z], color), // 5, front-right-bottom
+                DebugVertex::new([max.x, max.y, max.z], color), // 6, front-right-top
+                DebugVertex::new([max.x, max.y, min.z], color), // 7, front-left-top
+            ],
+            vec![
+                // back
+                0, 1, 0, 3, 1, 2, 2, 3, //front
+                4, 5, 4, 7, 5, 6, 6, 7, // left-bottom
+                0, 4, // left-top
+                3, 7, // right-bottom
+                1, 5, // right-top
+                2, 6,
+            ],
         );
         let mesh = mesh.build(self.get_display(), glium::index::PrimitiveType::LinesList);
 
@@ -293,7 +305,13 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .draw(mesh.get_vb(), mesh.get_ib(), &self.debug_program, uniforms, &render_params)
+            .draw(
+                mesh.get_vb(),
+                mesh.get_ib(),
+                &self.debug_program,
+                uniforms,
+                &render_params,
+            )
             .unwrap();
     }
 
@@ -303,7 +321,11 @@ impl Context {
     }
 
     pub fn finish_frame(&mut self) {
-        self.frame.take().unwrap().finish().expect("Couldn't finish frame!");
+        self.frame
+            .take()
+            .unwrap()
+            .finish()
+            .expect("Couldn't finish frame!");
     }
 }
 

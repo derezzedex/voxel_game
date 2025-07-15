@@ -1,5 +1,5 @@
-pub mod game;
 pub mod ecs;
-pub mod terrain;
+pub mod game;
 pub mod registry;
+pub mod terrain;
 pub use game::Game;

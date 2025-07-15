@@ -1,35 +1,39 @@
 pub mod block;
 pub mod mesh;
-pub use block::{BlockRegistry, BlockDataBuilder, Direction};
-pub use mesh::{MeshRegistry, MeshData, Hitbox, Point3};
+pub use block::{BlockDataBuilder, BlockRegistry, Direction};
 use engine::Vertex;
+pub use mesh::{Hitbox, MeshData, MeshRegistry, Point3};
 
 /// ### Registry
 /// Important part of the game, maintains all custom aspects in one place.
 /// Examples: Types of blocks, meshes, metadata in general.
-pub struct Registry{
+pub struct Registry {
     blocks: BlockRegistry,
     meshes: MeshRegistry,
 }
 
-impl Registry{
-    pub fn new() -> Self{
+impl Registry {
+    pub fn new() -> Self {
         let blocks = BlockRegistry::new();
         let meshes = MeshRegistry::new();
 
-        Self{
-            blocks,
-            meshes
-        }
+        Self { blocks, meshes }
     }
 
-
     // TODO: Make this an external/editable script
-    pub fn setup(&mut self){
-        let block = MeshData::new(vec![], vec![], Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)), false);
+    pub fn setup(&mut self) {
+        let block = MeshData::new(
+            vec![],
+            vec![],
+            Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0.5, 0.5)),
+            false,
+        );
         self.meshes.add("block", block);
 
-        let air = BlockDataBuilder::default().all_faces([0, 1]).transparent(true).build();
+        let air = BlockDataBuilder::default()
+            .all_faces([0, 1])
+            .transparent(true)
+            .build();
         self.blocks.add("air", air);
 
         let missing = BlockDataBuilder::default().all_faces([0, 1]).build();
@@ -74,46 +78,42 @@ impl Registry{
         let half_block = MeshData::new(
             vec![
                 // top (0, 0, 1)
-                Vertex::new([-0.5, -0.5,  0.5], [0., 0.], [1, 0]),
-                Vertex::new([ 0.5, -0.5,  0.5], [1., 0.], [1, 0]),
-                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
-                Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
+                Vertex::new([-0.5, -0.5, 0.5], [0., 0.], [1, 0]),
+                Vertex::new([0.5, -0.5, 0.5], [1., 0.], [1, 0]),
+                Vertex::new([0.5, 0., 0.5], [1., 1.], [1, 0]),
+                Vertex::new([-0.5, 0., 0.5], [0., 1.], [1, 0]),
                 // bottom (0, 0,5 -005
-                Vertex::new([-0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-                Vertex::new([ 0.5,  0.,  -0.5], [0., 0.], [1, 0]),
-                Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
+                Vertex::new([-0.5, 0., -0.5], [1., 0.], [1, 0]),
+                Vertex::new([0.5, 0., -0.5], [0., 0.], [1, 0]),
+                Vertex::new([0.5, -0.5, -0.5], [0., 1.], [1, 0]),
                 Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
                 // right (1, 00 5005
-                Vertex::new([ 0.5, -0.5, -0.5], [0., 0.], [1, 0]),
-                Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
-                Vertex::new([ 0.5, -0.5,  0.5], [0., 1.], [1, 0]),
+                Vertex::new([0.5, -0.5, -0.5], [0., 0.], [1, 0]),
+                Vertex::new([0.5, 0., -0.5], [1., 0.], [1, 0]),
+                Vertex::new([0.5, 0., 0.5], [1., 1.], [1, 0]),
+                Vertex::new([0.5, -0.5, 0.5], [0., 1.], [1, 0]),
                 // left (-1, 00 5005
-                Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
-                Vertex::new([-0.5,  0.,   0.5], [0., 0.], [1, 0]),
-                Vertex::new([-0.5,  0.,  -0.5], [0., 1.], [1, 0]),
+                Vertex::new([-0.5, -0.5, 0.5], [1., 0.], [1, 0]),
+                Vertex::new([-0.5, 0., 0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5, 0., -0.5], [0., 1.], [1, 0]),
                 Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
                 // front (0, 10 5005
-                Vertex::new([ 0.5,  0.,  -0.5], [1., 0.], [1, 0]),
-                Vertex::new([-0.5,  0.,  -0.5], [0., 0.], [1, 0]),
-                Vertex::new([-0.5,  0.,   0.5], [0., 1.], [1, 0]),
-                Vertex::new([ 0.5,  0.,   0.5], [1., 1.], [1, 0]),
+                Vertex::new([0.5, 0., -0.5], [1., 0.], [1, 0]),
+                Vertex::new([-0.5, 0., -0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5, 0., 0.5], [0., 1.], [1, 0]),
+                Vertex::new([0.5, 0., 0.5], [1., 1.], [1, 0]),
                 // back (0, -10 5005
-                Vertex::new([ 0.5, -0.5,  0.5], [0., 0.], [1, 0]),
-                Vertex::new([-0.5, -0.5,  0.5], [1., 0.], [1, 0]),
+                Vertex::new([0.5, -0.5, 0.5], [0., 0.], [1, 0]),
+                Vertex::new([-0.5, -0.5, 0.5], [1., 0.], [1, 0]),
                 Vertex::new([-0.5, -0.5, -0.5], [1., 1.], [1, 0]),
-                Vertex::new([ 0.5, -0.5, -0.5], [0., 1.], [1, 0]),
+                Vertex::new([0.5, -0.5, -0.5], [0., 1.], [1, 0]),
             ],
             vec![
-                20, 23, 22, 22, 21, 20,
-                16, 19, 18, 18, 17, 16,
-                12, 15, 14, 14, 13, 12,
-                8, 11, 10, 10, 9, 8,
-                4, 7, 6, 6, 5, 4,
-                0, 3, 2, 2, 1, 0
+                20, 23, 22, 22, 21, 20, 16, 19, 18, 18, 17, 16, 12, 15, 14, 14, 13, 12, 8, 11, 10,
+                10, 9, 8, 4, 7, 6, 6, 5, 4, 0, 3, 2, 2, 1, 0,
             ],
             Hitbox::new(Point3::new(-0.5, -0.5, -0.5), Point3::new(0.5, 0., 0.5)),
-            false
+            false,
         );
         let half_block_id = self.meshes.add("half_block", half_block);
 
@@ -125,28 +125,25 @@ impl Registry{
             .build();
         self.blocks.add("slab", slab);
 
-        let cross_mesh = MeshData::new( // used in vegetation and similar blocks, looks like and X when viewed from above
+        let cross_mesh = MeshData::new(
+            // used in vegetation and similar blocks, looks like and X when viewed from above
             vec![
                 Vertex::new([-0.3, -0.5, -0.3], [0., 0.], [1, 0]), //left-behind-bottom
-                Vertex::new([-0.3,  0.3, -0.3], [0., 1.], [1, 0]), //left-behind-top
-                Vertex::new([ 0.3, -0.5,  0.3], [1., 0.], [1, 0]), //right-front-bottom
-                Vertex::new([ 0.3,  0.3,  0.3], [1., 1.], [1, 0]), //right-front-top
-
-                Vertex::new([-0.3, -0.5,  0.3], [0., 0.], [1, 0]), //left-front-bottom
-                Vertex::new([-0.3,  0.3,  0.3], [0., 1.], [1, 0]), //left-front-top
-                Vertex::new([ 0.3, -0.5, -0.3], [1., 0.], [1, 0]), //right-behind-bottom
-                Vertex::new([ 0.3,  0.3, -0.3], [1., 1.], [1, 0]), //right-behind-top
+                Vertex::new([-0.3, 0.3, -0.3], [0., 1.], [1, 0]),  //left-behind-top
+                Vertex::new([0.3, -0.5, 0.3], [1., 0.], [1, 0]),   //right-front-bottom
+                Vertex::new([0.3, 0.3, 0.3], [1., 1.], [1, 0]),    //right-front-top
+                Vertex::new([-0.3, -0.5, 0.3], [0., 0.], [1, 0]),  //left-front-bottom
+                Vertex::new([-0.3, 0.3, 0.3], [0., 1.], [1, 0]),   //left-front-top
+                Vertex::new([0.3, -0.5, -0.3], [1., 0.], [1, 0]),  //right-behind-bottom
+                Vertex::new([0.3, 0.3, -0.3], [1., 1.], [1, 0]),   //right-behind-top
             ],
             vec![
-                2, 3, 1, 1, 0, 2,
-                2, 0, 1, 1, 3, 2,
-                6, 7, 5, 5, 4, 6,
-                6, 4, 5, 5, 7, 6
-                //2, 3, 1, 1, 0, 2
-                // 5, 4, 6, 6, 5, 7,
+                2, 3, 1, 1, 0, 2, 2, 0, 1, 1, 3, 2, 6, 7, 5, 5, 4, 6, 6, 4, 5, 5, 7,
+                6, //2, 3, 1, 1, 0, 2
+                  // 5, 4, 6, 6, 5, 7,
             ],
             Hitbox::new(Point3::new(-0.3, -0.5, -0.3), Point3::new(0.3, 0.1, 0.3)),
-            true
+            true,
         );
         let cross_mesh_id = self.meshes.add("cross_mesh", cross_mesh);
 
@@ -160,11 +157,11 @@ impl Registry{
         self.blocks.add("grassy", grassy);
     }
 
-    pub fn block_registry(&self) -> &BlockRegistry{
+    pub fn block_registry(&self) -> &BlockRegistry {
         &self.blocks
     }
 
-    pub fn mesh_registry(&self) -> &MeshRegistry{
+    pub fn mesh_registry(&self) -> &MeshRegistry {
         &self.meshes
     }
 }

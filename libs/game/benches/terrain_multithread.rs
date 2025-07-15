@@ -1,7 +1,7 @@
-use game::terrain::manager::LOAD_DISTANCE;
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use game::terrain::manager::TerrainManager;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use game::registry::Registry;
+use game::terrain::manager::TerrainManager;
+use game::terrain::manager::LOAD_DISTANCE;
 use std::sync::Arc;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -11,13 +11,14 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("Chunk generation (distance: 4, multithreaded)");
     group.sample_size(10);
-    
-    for threads in 1..=num_cpus::get()+1{
+
+    for threads in 1..=num_cpus::get() + 1 {
         let mut terrain_manager = TerrainManager::new(&registry).with_threads(threads);
         group.bench_with_input(BenchmarkId::new("threads", threads), &threads, |b, _| {
             b.iter(|| {
                 terrain_manager.setup_threaded();
-                while terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) { }
+                while terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) {
+                }
             });
         });
     }

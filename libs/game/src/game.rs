@@ -1,19 +1,19 @@
-use crate::terrain::manager::LOAD_DISTANCE;
-use engine::renderer::Context;
 use crate::ecs::ECSManager;
 use crate::registry::Registry;
 use crate::terrain::chunk::{ChunkPosition, CHUNKSIZE};
 use crate::terrain::manager::TerrainManager;
+use crate::terrain::manager::LOAD_DISTANCE;
+use engine::renderer::Context;
 use engine::utils::camera::Camera;
-use engine::utils::texture::TextureStorage;
 use engine::utils::clock::*;
 use engine::utils::raycast::VoxelRay;
+use engine::utils::texture::TextureStorage;
 
 use crate::ecs::components;
 use crate::ecs::systems::*;
 use cgmath::{Point3, Vector3, Zero};
-use collision::{Frustum, Aabb3, Relation, Ray3};
-use collision::prelude::{Discrete};
+use collision::prelude::Discrete;
+use collision::{Aabb3, Frustum, Ray3, Relation};
 use specs::prelude::*;
 
 use std::path::Path;
@@ -40,7 +40,7 @@ impl Game {
 
         let camera = Camera::new([8., 0., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
-        
+
         let texture_path = Path::new("res")
             .join("img")
             .join("texture")
@@ -117,8 +117,7 @@ impl Game {
             *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
         }
 
-
-        self.terrain_manager.setup_threaded();//self.context.get_display());
+        self.terrain_manager.setup_threaded(); //self.context.get_display());
         println!("Expecting: {:?}", (LOAD_DISTANCE as usize * 2 + 1).pow(3));
         // while self.terrain_manager.get_chunks().len() < (LOAD_DISTANCE as usize * 2 + 1).pow(3) { }
         // let mut received = 0;
@@ -144,11 +143,11 @@ impl Game {
         self.ecs_manager.run_systems();
 
         // sync player position with camera
-        let position_storage = self
-            .ecs_manager.read_storage::<components::Position>();
+        let position_storage = self.ecs_manager.read_storage::<components::Position>();
         let position = position_storage
             .get(self.player)
-            .expect("Failed to get Player Position").0;
+            .expect("Failed to get Player Position")
+            .0;
         self.camera.set_positon(position);
         self.camera.update();
 
@@ -168,98 +167,125 @@ impl Game {
                     engine::glium::glutin::DeviceEvent::MouseMotion { delta } => {
                         self.camera.handle_mouse(delta.0, delta.1);
                         self.context.reset_mouse_position();
-                    },
+                    }
                     _ => (),
                 },
                 engine::glium::glutin::Event::WindowEvent { event, .. } => match event {
                     engine::glium::glutin::WindowEvent::CloseRequested => self.running = false,
                     engine::glium::glutin::WindowEvent::MouseInput { state, button, .. } => {
-                        if *state == engine::glium::glutin::ElementState::Released{
-                            let position = self.camera.get_position().cast::<f32>().expect("f64 to f32 failed");
-                            let front = self.camera.get_front().cast::<f32>().expect("f64 to f32 failed");
-                            let mut ray = VoxelRay::new(position, position+front, 8);
+                        if *state == engine::glium::glutin::ElementState::Released {
+                            let position = self
+                                .camera
+                                .get_position()
+                                .cast::<f32>()
+                                .expect("f64 to f32 failed");
+                            let front = self
+                                .camera
+                                .get_front()
+                                .cast::<f32>()
+                                .expect("f64 to f32 failed");
+                            let mut ray = VoxelRay::new(position, position + front, 8);
 
                             if let Some((mut position, face)) = ray.until(|b, _f| {
-                                if let Some((block, _)) = self.terrain_manager.block_at(b.x, b.y, b.z){
-                                    if block != 0  { return true }
+                                if let Some((block, _)) =
+                                    self.terrain_manager.block_at(b.x, b.y, b.z)
+                                {
+                                    if block != 0 {
+                                        return true;
+                                    }
                                 }
                                 false
-                            }){
-                                let replacer = if *button == engine::glium::glutin::MouseButton::Right{
-                                    position += face.cast::<f32>().expect("Couldn't cast f64 to f32");
-                                    self.terrain_manager.get_registry().block_registry().id_of("water").expect("couldn't grab water id")
-                                }else if *button == engine::glium::glutin::MouseButton::Left{
-                                    0
-                                }else {
-                                    self.terrain_manager.get_registry().block_registry().id_of("glass").expect("couldn't grab water id")
-                                };
+                            }) {
+                                let replacer =
+                                    if *button == engine::glium::glutin::MouseButton::Right {
+                                        position +=
+                                            face.cast::<f32>().expect("Couldn't cast f64 to f32");
+                                        self.terrain_manager
+                                            .get_registry()
+                                            .block_registry()
+                                            .id_of("water")
+                                            .expect("couldn't grab water id")
+                                    } else if *button == engine::glium::glutin::MouseButton::Left {
+                                        0
+                                    } else {
+                                        self.terrain_manager
+                                            .get_registry()
+                                            .block_registry()
+                                            .id_of("glass")
+                                            .expect("couldn't grab water id")
+                                    };
                                 // let c_pos = ChunkPosition::from_world(position.x, position.y, position.z);
 
-                                self.terrain_manager.set_block(position.x, position.y, position.z, replacer);
+                                self.terrain_manager
+                                    .set_block(position.x, position.y, position.z, replacer);
                             }
                         }
-                    },
+                    }
                     engine::glium::glutin::WindowEvent::KeyboardInput { input, .. } => {
                         let pressed = match input.state {
                             engine::glium::glutin::ElementState::Pressed => true,
                             _ => false,
                         };
                         match input.virtual_keycode {
-                            Some(key) => {
-                                match key {
-                                    engine::glium::glutin::VirtualKeyCode::P => {
-                                        if pressed {
-                                            self.context.grab_mouse();
-                                        }
+                            Some(key) => match key {
+                                engine::glium::glutin::VirtualKeyCode::P => {
+                                    if pressed {
+                                        self.context.grab_mouse();
                                     }
-                                    engine::glium::glutin::VirtualKeyCode::Escape => {
-                                        self.running = false;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::W => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.forward = pressed;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::S => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.backward = pressed;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::A => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.left = pressed;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::D => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.right = pressed;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::Space => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.up = pressed;
-                                    }
-                                    engine::glium::glutin::VirtualKeyCode::LShift => {
-                                        let mut controller_storage = self.ecs_manager.write_storage::<components::Controller>();
-                                        let controller = controller_storage
-                                            .get_mut(self.player)
-                                            .expect("Failed to get Player Controller");
-                                        controller.down = pressed;
-                                    }
-                                    _ => (),
                                 }
-                            }
+                                engine::glium::glutin::VirtualKeyCode::Escape => {
+                                    self.running = false;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::W => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.forward = pressed;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::S => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.backward = pressed;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::A => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.left = pressed;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::D => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.right = pressed;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::Space => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.up = pressed;
+                                }
+                                engine::glium::glutin::VirtualKeyCode::LShift => {
+                                    let mut controller_storage =
+                                        self.ecs_manager.write_storage::<components::Controller>();
+                                    let controller = controller_storage
+                                        .get_mut(self.player)
+                                        .expect("Failed to get Player Controller");
+                                    controller.down = pressed;
+                                }
+                                _ => (),
+                            },
                             None => (),
                         }
                     }
@@ -296,7 +322,7 @@ impl Game {
             .get_view()
             .cast::<f32>()
             .expect("Couldn't cast View f64 to f32");
-            // .into();
+        // .into();
 
         let projection = perspective * view;
         let frustum = Frustum::from_matrix4(projection.into()).expect("No frustum!");
@@ -304,47 +330,67 @@ impl Game {
         let perspective: [[f32; 4]; 4] = perspective.into();
         let position = self.camera.get_position();
 
-        self.terrain_manager.mesh_chunks(self.context.get_display(), self.timer.get_timer());
+        self.terrain_manager
+            .mesh_chunks(self.context.get_display(), self.timer.get_timer());
         let mut meshes = self.terrain_manager.get_meshes().iter().collect::<Vec<_>>();
         //TODO: Benchmark this function and compare with render distance
         meshes.sort_by(|c1, c2| {
             let pos1 = c1.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            let a = ((pos1.x - position.x).powf(2.) + (pos1.y - position.y).powf(2.) + (pos1.z - position.z).powf(2.)).sqrt(); //euclidean
+            let a = ((pos1.x - position.x).powf(2.)
+                + (pos1.y - position.y).powf(2.)
+                + (pos1.z - position.z).powf(2.))
+            .sqrt(); //euclidean
 
             let pos2 = c2.key().cast::<f64>().expect("isize to f64 failed") * CHUNKSIZE as f64;
-            let b = ((pos2.x - position.x).powf(2.) + (pos2.y - position.y).powf(2.) + (pos2.z - position.z).powf(2.)).sqrt();
-            a.partial_cmp(&b).expect("error sorting chunks")  // nearest to farthest
+            let b = ((pos2.x - position.x).powf(2.)
+                + (pos2.y - position.y).powf(2.)
+                + (pos2.z - position.z).powf(2.))
+            .sqrt();
+            a.partial_cmp(&b).expect("error sorting chunks") // nearest to farthest
         });
         let mut inside_frustum = Vec::new();
-        for mesh_ref in &meshes{
+        for mesh_ref in &meshes {
             let (position, mesh) = mesh_ref.pair();
-            let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
-            let aabb = Aabb3::new(model_position, model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32));
-            if frustum.contains(&aabb) == Relation::Out{
+            let model_position =
+                Point3::new(position.x as f32, position.y as f32, position.z as f32)
+                    * CHUNKSIZE as f32;
+            let aabb = Aabb3::new(
+                model_position,
+                model_position + Vector3::new(CHUNKSIZE as f32, CHUNKSIZE as f32, CHUNKSIZE as f32),
+            );
+            if frustum.contains(&aabb) == Relation::Out {
                 continue;
             }
             inside_frustum.push(position.clone());
 
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
+            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
+                [model_position.x, model_position.y, model_position.z].into(),
+            )
             .into();
-            let uniforms =  engine::glium::uniform! {
+            let uniforms = engine::glium::uniform! {
                 m: model,
                 v: view,
                 p: perspective,
                 t: texture
             };
-            self.context.draw(mesh.0.get_vb(), mesh.0.get_ib(), &uniforms);
+            self.context
+                .draw(mesh.0.get_vb(), mesh.0.get_ib(), &uniforms);
         }
 
         meshes.reverse(); // farthest to nearest
-        for mesh_ref in &meshes{ //draw transparent
+        for mesh_ref in &meshes {
+            //draw transparent
             let (position, mesh) = mesh_ref.pair();
-            if inside_frustum.contains(&position){
-                if let Some(transparent) = &mesh.1{
-                    let model_position = Point3::new(position.x as f32, position.y as f32, position.z as f32) * CHUNKSIZE as f32;
-                    let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([model_position.x , model_position.y, model_position.z].into())
+            if inside_frustum.contains(&position) {
+                if let Some(transparent) = &mesh.1 {
+                    let model_position =
+                        Point3::new(position.x as f32, position.y as f32, position.z as f32)
+                            * CHUNKSIZE as f32;
+                    let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
+                        [model_position.x, model_position.y, model_position.z].into(),
+                    )
                     .into();
-                    let uniforms =  engine::glium::uniform! {
+                    let uniforms = engine::glium::uniform! {
                         m: model,
                         v: view,
                         p: perspective,
@@ -361,53 +407,81 @@ impl Game {
                         backface_culling: engine::glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
                         ..Default::default()
                     };
-                    self.context.draw_with_params(transparent.get_vb(), transparent.get_ib(), &uniforms, render_params);
+                    self.context.draw_with_params(
+                        transparent.get_vb(),
+                        transparent.get_ib(),
+                        &uniforms,
+                        render_params,
+                    );
                 }
             }
         }
 
         let front = self.camera.get_front();
-        let position = position.cast::<f32>().expect("Failed to cast Position to f32");
+        let position = position
+            .cast::<f32>()
+            .expect("Failed to cast Position to f32");
         let front = front.cast::<f32>().expect("Failed to cast Front to f32");
-        let mut ray = VoxelRay::new(position, position+front, 8);
+        let mut ray = VoxelRay::new(position, position + front, 8);
         let r_pos = ray.position;
         let r_dir = ray.direction;
 
         if let Some((position, _face)) = ray.until(|b, _f| {
-            if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z){
-                if block != 0{ //not air
+            if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z) {
+                if block != 0 {
+                    //not air
                     let mesh_id = data.get_mesh();
-                    if mesh_id != 0{ // not block
-                        let hitbox = self.registry.mesh_registry().by_id(mesh_id).expect("Couldn't retrieve mesh").get_hitbox();
+                    if mesh_id != 0 {
+                        // not block
+                        let hitbox = self
+                            .registry
+                            .mesh_registry()
+                            .by_id(mesh_id)
+                            .expect("Couldn't retrieve mesh")
+                            .get_hitbox();
                         let pos_v = Vector3::new(b.x.trunc(), b.y.trunc(), b.z.trunc());
                         // println!("Hitbox: {:?} Point: {:?}", Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v), (b - (f.cast::<f32>().expect("i8 to f32 failed")/100.)));
                         let inf_ray = Ray3::new(r_pos, r_dir);
-                        let intersects = inf_ray.intersects(&Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v));
-                        if intersects{
-                            return true
-                        }else{
-                            return false
+                        let intersects =
+                            inf_ray.intersects(&Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v));
+                        if intersects {
+                            return true;
+                        } else {
+                            return false;
                         }
                     }
                     return true;
                 }
             }
             false
-        }){
-            if let Some((_block, data)) = self.terrain_manager.block_at(position.x, position.y, position.z){
+        }) {
+            if let Some((_block, data)) = self
+                .terrain_manager
+                .block_at(position.x, position.y, position.z)
+            {
                 // let mut selected = MeshData::new();
-                let hitbox = self.registry.mesh_registry().by_id(data.get_mesh()).expect("Couldn't retrieve mesh").get_hitbox();
-                let position = Vector3::new(position.x.trunc(), position.y.trunc(), position.z.trunc());
-                let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.))
-                .into();
+                let hitbox = self
+                    .registry
+                    .mesh_registry()
+                    .by_id(data.get_mesh())
+                    .expect("Couldn't retrieve mesh")
+                    .get_hitbox();
+                let position =
+                    Vector3::new(position.x.trunc(), position.y.trunc(), position.z.trunc());
+                let model: [[f32; 4]; 4] =
+                    cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.)).into();
                 let uniforms = engine::glium::uniform! {
                     m: model,
                     v: view,
                     p: perspective,
                     t: texture
                 };
-                self.context.draw_hitbox(hitbox.min + position, hitbox.max + position, [0., 0., 0., 1.], &uniforms);
-
+                self.context.draw_hitbox(
+                    hitbox.min + position,
+                    hitbox.max + position,
+                    [0., 0., 0., 1.],
+                    &uniforms,
+                );
             }
         }
 
@@ -426,6 +500,5 @@ impl Game {
 
         self.context.draw_ui();
         self.context.finish_frame();
-
     }
 }

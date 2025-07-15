@@ -5,13 +5,13 @@ pub mod systems;
 
 use systems::*;
 
-pub struct ECSManager{
+pub struct ECSManager {
     world: World,
-    dispatcher: Dispatcher<'static, 'static>
+    dispatcher: Dispatcher<'static, 'static>,
 }
 
-impl ECSManager{
-    pub fn new() -> Self{
+impl ECSManager {
+    pub fn new() -> Self {
         let mut world = World::new();
         let mut dispatcher = DispatcherBuilder::new()
             .with(InputSystem, "input", &[])
@@ -21,33 +21,30 @@ impl ECSManager{
 
         dispatcher.setup(&mut world);
 
-        Self{
-            world,
-            dispatcher
-        }
+        Self { world, dispatcher }
     }
 
     // pub fn setup_dispatcher(&mut self){
     //     self.dispatcher.setup(&mut self.world);
     // }
 
-    pub fn get_mut_world(&mut self) -> &mut World{
+    pub fn get_mut_world(&mut self) -> &mut World {
         &mut self.world
     }
 
-    pub fn run_systems(&mut self){
+    pub fn run_systems(&mut self) {
         self.dispatcher.dispatch(&self.world);
     }
 
-    pub fn maintain_world(&mut self){
+    pub fn maintain_world(&mut self) {
         self.world.maintain();
     }
-    
-    pub fn read_storage<T: specs::Component>(&self) -> ReadStorage<T>{
+
+    pub fn read_storage<T: specs::Component>(&self) -> ReadStorage<T> {
         self.world.read_storage::<T>()
     }
 
-    pub fn write_storage<T: specs::Component>(&self) -> WriteStorage<T>{
+    pub fn write_storage<T: specs::Component>(&self) -> WriteStorage<T> {
         self.world.write_storage::<T>()
     }
 }
