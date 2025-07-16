@@ -1,4 +1,3 @@
-use crate::utils::filesystem;
 use glium::glutin::surface::WindowSurface;
 use image::GenericImageView;
 use std::io::Cursor;
@@ -21,8 +20,9 @@ impl TextureStorage {
         image_type: image::ImageFormat,
         tile_size: u32,
     ) -> Self {
-        let cargo = filesystem::cargo_path();
-        let path = Path::new(&cargo).join(image_path);
+        let path = Path::new(env!("CARGO_WORKSPACE_DIR"))
+            .join("assets")
+            .join(image_path);
 
         let data = std::fs::read(path).expect("Couldn't read image!");
         let bytes = Cursor::new(&data[..]);

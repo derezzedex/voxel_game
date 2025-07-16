@@ -1,5 +1,8 @@
-use game::Game;
+pub mod ecs;
+pub mod game;
+pub mod registry;
+pub mod terrain;
 
 fn main() {
-    Game::run("Voxel Game");
+    game::run("Voxel Game");
 }

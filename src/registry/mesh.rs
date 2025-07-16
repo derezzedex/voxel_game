@@ -1,7 +1,7 @@
 pub use cgmath::Point3;
 use dashmap::DashMap;
-use engine::mesh;
 use engine::Vertex;
+use engine::mesh;
 
 //TODO: Use AABB3 from collision
 pub struct Hitbox {

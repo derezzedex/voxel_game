@@ -1,6 +1,5 @@
 use crate::mesh::DebugMeshData;
 use crate::ui::UIManager;
-use crate::utils::filesystem;
 use crate::{DebugVertex, Vertex};
 use cgmath::Point3;
 
@@ -9,7 +8,7 @@ use glium::glutin::surface::WindowSurface;
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::winit::event_loop::EventLoop;
 use glium::winit::window::CursorGrabMode;
-use glium::{glutin, winit, Surface};
+use glium::{Surface, glutin, winit};
 use std::fs;
 use std::path::Path;
 
@@ -46,9 +45,9 @@ impl Context {
 
         window.set_outer_position(winit::dpi::LogicalPosition::new(0, 0));
 
-        // TODO: Fix this ugly solution to the current file retrieving method
-        let cargo = filesystem::cargo_path();
-        let shader_path = cargo.join("res").join("shaders");
+        let shader_path = Path::new(env!("CARGO_WORKSPACE_DIR"))
+            .join("assets")
+            .join("shaders");
         println!("Shader directory: {:?}", &shader_path);
 
         // CHUNK SHADER

@@ -60,9 +60,9 @@ This is a list containing all of the planned features and their current state.
 
 ## Screenshots
 ##### Version 0.1.0
-  ![screenshot-01](preview/preview-01.png)
+  ![screenshot-01](docs/preview-01.png)
 ##### Version 0.1.1
-  ![screenshot-02](preview/preview-02.png)    
+  ![screenshot-02](docs/preview-02.png)    
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

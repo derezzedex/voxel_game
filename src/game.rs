@@ -1,8 +1,8 @@
 use crate::ecs::ECSManager;
 use crate::registry::Registry;
-use crate::terrain::chunk::{ChunkPosition, CHUNKSIZE};
-use crate::terrain::manager::TerrainManager;
+use crate::terrain::chunk::{CHUNKSIZE, ChunkPosition};
 use crate::terrain::manager::LOAD_DISTANCE;
+use crate::terrain::manager::TerrainManager;
 use engine::glium::winit;
 use engine::glium::winit::event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent};
 use engine::glium::winit::event_loop::EventLoop;
@@ -22,6 +22,40 @@ use specs::prelude::*;
 
 use std::path::Path;
 use std::sync::Arc;
+
+pub fn run(title: &str) {
+    let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
+    let mut game = Game::new(&event_loop, title);
+    game.setup();
+
+    #[allow(deprecated)]
+    event_loop
+        .run(move |event, target| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                target.exit();
+            }
+            Event::WindowEvent {
+                event: WindowEvent::RedrawRequested,
+                ..
+            } => {
+                game.render();
+            }
+            Event::AboutToWait => {
+                game.tick();
+
+                if !game.running {
+                    target.exit();
+                }
+
+                game.context.window.request_redraw();
+            }
+            event => game.handle_input(event),
+        })
+        .unwrap();
+}
 
 #[allow(dead_code)]
 pub struct Game {
@@ -45,10 +79,7 @@ impl Game {
         let camera = Camera::new([8., 0., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
         let mut ecs_manager = ECSManager::new();
 
-        let texture_path = Path::new("res")
-            .join("img")
-            .join("texture")
-            .join("atlas.png");
+        let texture_path = Path::new("img").join("texture").join("atlas.png");
         let texture_storage =
             TextureStorage::new(&context.display, &texture_path, image::ImageFormat::Png, 16);
 
@@ -84,40 +115,6 @@ impl Game {
             timer,
             running,
         }
-    }
-
-    pub fn run(title: &str) {
-        let event_loop = winit::event_loop::EventLoop::new().expect("failed to create event loop");
-        let mut game = Self::new(&event_loop, title);
-        game.setup();
-
-        #[allow(deprecated)]
-        event_loop
-            .run(move |event, target| match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => {
-                    target.exit();
-                }
-                Event::WindowEvent {
-                    event: WindowEvent::RedrawRequested,
-                    ..
-                } => {
-                    game.render();
-                }
-                Event::AboutToWait => {
-                    game.tick();
-
-                    if !game.running {
-                        target.exit();
-                    }
-
-                    game.context.window.request_redraw();
-                }
-                event => game.handle_input(event),
-            })
-            .unwrap();
     }
 
     pub fn tick(&mut self) {

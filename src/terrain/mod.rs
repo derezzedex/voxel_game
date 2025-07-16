@@ -3,5 +3,5 @@ pub mod chunk;
 pub mod manager;
 pub mod mesher;
 
-pub use chunk::{Chunk, ChunkPosition, FromWorld, CHUNKSIZE};
+pub use chunk::{CHUNKSIZE, Chunk, ChunkPosition, FromWorld};
 pub use manager::ChunkMap;

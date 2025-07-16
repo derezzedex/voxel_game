@@ -1,0 +1,10 @@
+[package]
+name = "engine"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+glium.workspace = true
+cgmath.workspace = true
+image.workspace = true

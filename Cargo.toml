@@ -1,18 +1,52 @@
 [package]
 name = "voxel_game"
+version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+engine.workspace = true
+cgmath.workspace = true
+image.workspace = true
+rayon.workspace = true
+collision.workspace = true
+specs.workspace = true
+noise.workspace = true
+uvth.workspace = true
+dashmap.workspace = true
+
+[workspace]
+members = ["engine"]
+
+[workspace.package]
 version = "0.1.2"
-authors = ["derezzedex <richardsoncusto@gmail.com>"]
+authors = ["Richard <richardcustodio@pm.me>"]
 description = "Simple voxel game"
 repository = "https://github.com/derezzedex/voxel_game"
 license = "GPL-3.0"
-edition = "2018"
-readme = "README.md"
+edition = "2024"
 
-[workspace]
-members = [
-  "libs/engine",
-  "libs/game",
-]
+[workspace.dependencies]
+engine = { path = "engine" }
+glium = { git = "https://github.com/glium/glium" }
+cgmath = "0.18"
+image = "0.25"
+rayon = "1.10"
+collision = { git = "https://github.com/rustgd/collision-rs" } # needed for `cgmath = 0.18`
+specs = { version = "0.20", features = ["derive"] }
+noise = "0.9"
+uvth = "4.0"
+dashmap = "6.1"
 
-[dependencies]
-game = { path = "libs/game" }
+[profile.release-opt]
+inherits = "release"
+codegen-units = 1
+debug = false
+lto = true
+incremental = false
+opt-level = 3
+overflow-checks = false
+strip = "debuginfo"

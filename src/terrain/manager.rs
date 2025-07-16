@@ -1,16 +1,16 @@
 use super::block::BlockData;
-use super::chunk::FromWorld;
 use super::chunk::CHUNKSIZE;
+use super::chunk::FromWorld;
 use super::chunk::{Chunk, ChunkPosition};
 use super::mesher::*;
 use crate::registry::Registry;
+use engine::Direction;
 use engine::glium::glutin::surface::WindowSurface;
 use engine::mesh::{Mesh, MeshData};
-use engine::Direction;
 
 use cgmath::{Point3, Vector3};
-use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
+use dashmap::mapref::one::Ref;
 use noise::{Fbm, NoiseFn, Perlin};
 use uvth::{ThreadPool, ThreadPoolBuilder};
 
