@@ -5,26 +5,26 @@ use std::io::Cursor;
 use std::path::Path;
 
 #[derive(Copy, Clone, Debug)]
-pub struct UIVertex {
+pub struct Vertex {
     pub position: [f32; 2],
     pub uv: [f32; 2],
 }
 
-impl UIVertex {
+impl Vertex {
     pub const fn new(position: [f32; 2], uv: [f32; 2]) -> Self {
         Self { position, uv }
     }
 }
 
-implement_vertex!(UIVertex, position, uv);
+glium::implement_vertex!(Vertex, position, uv);
 
 #[derive(Clone)]
-pub struct UIMeshData {
-    pub vertices: Vec<UIVertex>,
+pub struct MeshData {
+    pub vertices: Vec<Vertex>,
     pub indices: Vec<u32>,
 }
 
-impl UIMeshData {
+impl MeshData {
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
@@ -32,7 +32,7 @@ impl UIMeshData {
         }
     }
 
-    pub fn add(&mut self, vertices: Vec<UIVertex>, mut indices: Vec<u32>) {
+    pub fn add(&mut self, vertices: Vec<Vertex>, mut indices: Vec<u32>) {
         let index_count = self.vertices.len() as u32;
 
         for index in &mut indices {
@@ -43,7 +43,7 @@ impl UIMeshData {
         self.indices.extend_from_slice(&indices);
     }
 
-    pub fn build(&self, display: &glium::Display<WindowSurface>) -> UIMesh {
+    pub fn build(&self, display: &glium::Display<WindowSurface>) -> Mesh {
         let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])
             .expect("Couldn't create VB");
         let ib = glium::IndexBuffer::new(
@@ -52,17 +52,17 @@ impl UIMeshData {
             &self.indices[..],
         )
         .expect("Couldn't create IB");
-        UIMesh { vb, ib }
+        Mesh { vb, ib }
     }
 }
 
-pub struct UIMesh {
-    vb: glium::vertex::VertexBuffer<UIVertex>,
+pub struct Mesh {
+    vb: glium::vertex::VertexBuffer<Vertex>,
     ib: glium::index::IndexBuffer<u32>,
 }
 
-impl UIMesh {
-    pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<UIVertex> {
+impl Mesh {
+    pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<Vertex> {
         &self.vb
     }
 
@@ -72,13 +72,14 @@ impl UIMesh {
 }
 
 pub type Texture2D = glium::texture::srgb_texture2d::SrgbTexture2d;
-pub struct UIManager {
+
+pub struct Renderer {
     texture: Texture2D,
     shader_program: glium::Program,
-    mesh: UIMesh,
+    mesh: Mesh,
 }
 
-impl UIManager {
+impl Renderer {
     pub fn new(
         display: &glium::Display<WindowSurface>,
         path: &Path,
@@ -108,12 +109,12 @@ impl UIManager {
             glium::Program::from_source(display, &vertex_shader_src, &fragment_shader_src, None)
                 .expect("Couldn't build UI Shader Program");
 
-        let mut ui_mesh = UIMeshData::new();
+        let mut ui_mesh = MeshData::new();
         let vertices = vec![
-            UIVertex::new([0., 0.], [0., 0.]),
-            UIVertex::new([0.5, 0.], [1., 0.]),
-            UIVertex::new([0., 0.5], [0., 1.]),
-            UIVertex::new([0.5, 0.5], [1., 1.]),
+            Vertex::new([0., 0.], [0., 0.]),
+            Vertex::new([0.5, 0.], [1., 0.]),
+            Vertex::new([0., 0.5], [0., 1.]),
+            Vertex::new([0.5, 0.5], [1., 1.]),
         ];
         let indices = vec![2, 3, 1, 1, 0, 2];
         ui_mesh.add(vertices, indices);
@@ -126,17 +127,17 @@ impl UIManager {
         }
     }
 
-    pub fn get_sampled(&self) -> glium::uniforms::Sampler<Texture2D> {
+    pub fn sampler(&self) -> glium::uniforms::Sampler<Texture2D> {
         self.texture
             .sampled()
             .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
     }
 
-    pub fn get_mesh(&self) -> &UIMesh {
+    pub fn mesh(&self) -> &Mesh {
         &self.mesh
     }
 
-    pub fn get_shader(&self) -> &glium::Program {
+    pub fn shader(&self) -> &glium::Program {
         &self.shader_program
     }
 }

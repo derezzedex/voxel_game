@@ -14,7 +14,8 @@ impl Camera {
     pub fn new(position: [f64; 3]) -> Self {
         let position = cgmath::Point3::new(position[0], position[1], position[2]);
         let front = cgmath::Vector3::new(1., 0., 0.);
-        let view = cgmath::Matrix4::look_at(position, position + front, cgmath::Vector3::unit_y());
+        let view =
+            cgmath::Matrix4::look_at_rh(position, position + front, cgmath::Vector3::unit_y());
 
         let (yaw, pitch) = (0., 0.);
 
@@ -27,19 +28,14 @@ impl Camera {
         }
     }
 
-    pub fn handle_mouse(&mut self, delta_x: f64, delta_y: f64) {
+    pub fn handle_mouse(&mut self, (delta_x, delta_y): (f64, f64)) {
         let x = delta_x * SENSITIVITY;
         let y = -delta_y * SENSITIVITY;
 
         self.yaw += x;
         self.pitch += y;
 
-        if self.pitch > 89.0 {
-            self.pitch = 89.0
-        }
-        if self.pitch < -89.0 {
-            self.pitch = -89.0
-        }
+        self.pitch = self.pitch.clamp(-89.0, 89.0);
 
         let mut front = Vector3::zero();
         front.x = self.yaw.to_radians().cos() * self.pitch.to_radians().cos();
@@ -48,27 +44,24 @@ impl Camera {
         self.front = front.normalize();
     }
 
-    pub fn update(&mut self) {
-        self.view = cgmath::Matrix4::look_at(
+    pub fn update(&mut self, position: Point3<f64>) {
+        self.position = position;
+        self.view = cgmath::Matrix4::look_at_rh(
             self.position,
             self.position + self.front,
             cgmath::Vector3::unit_y(),
         );
     }
 
-    pub fn set_positon(&mut self, pos: Point3<f64>) {
-        self.position = pos;
-    }
-
-    pub fn get_position(&self) -> Point3<f64> {
+    pub fn position(&self) -> Point3<f64> {
         self.position
     }
 
-    pub fn get_front(&self) -> Vector3<f64> {
+    pub fn front(&self) -> Vector3<f64> {
         self.front
     }
 
-    pub fn get_view(&self) -> Matrix4<f64> {
+    pub fn view(&self) -> Matrix4<f64> {
         self.view
     }
 }

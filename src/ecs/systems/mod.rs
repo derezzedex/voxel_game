@@ -24,6 +24,15 @@ pub struct Terrain(pub Arc<ChunkMap>);
 #[derive(Default)]
 pub struct DeltaTime(pub f64);
 
+impl DeltaTime {
+    pub fn from_millis(millis: u64) -> Self {
+        let duration = std::time::Duration::from_millis(millis);
+        let dt = (duration.as_secs() as f64 + duration.subsec_nanos() as f64 / 1e6) / 1e3;
+
+        Self(dt)
+    }
+}
+
 pub struct MovementSystem;
 impl<'a> System<'a> for MovementSystem {
     type SystemData = (

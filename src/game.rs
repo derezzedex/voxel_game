@@ -3,15 +3,17 @@ use crate::registry::Registry;
 use crate::terrain::chunk::{CHUNKSIZE, ChunkPosition};
 use crate::terrain::manager::LOAD_DISTANCE;
 use crate::terrain::manager::TerrainManager;
+use engine::glium::uniforms::{MagnifySamplerFilter, SamplerWrapFunction};
 use engine::glium::winit;
 use engine::glium::winit::event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent};
 use engine::glium::winit::event_loop::EventLoop;
 use engine::glium::winit::keyboard::{KeyCode, PhysicalKey};
+use engine::glium::winit::window;
 use engine::renderer::Context;
 use engine::utils::camera::Camera;
 use engine::utils::clock::*;
-use engine::utils::raycast::VoxelRay;
-use engine::utils::texture::TextureStorage;
+use engine::utils::ray::Ray;
+use engine::utils::texture;
 
 use crate::ecs::components;
 use crate::ecs::systems::*;
@@ -50,7 +52,7 @@ pub fn run(title: &str) {
                     target.exit();
                 }
 
-                game.context.window.request_redraw();
+                game.context.window().request_redraw();
             }
             event => game.handle_input(event),
         })
@@ -63,30 +65,36 @@ pub struct Game {
     ecs_manager: ECSManager,
     registry: Arc<Registry>,
     terrain_manager: TerrainManager,
-    texture_storage: TextureStorage,
+    atlas: texture::Array,
     player: Entity,
     camera: Camera,
     timer: Clock,
     running: bool,
+    grab_mode: window::CursorGrabMode,
 }
 
 impl Game {
+    const UDATES_PER_SECOND: u64 = 16;
+
     pub fn new(event_loop: &EventLoop<()>, title: &str) -> Self {
         let context = Context::new(event_loop, title, "vertex.glsl", "fragment.glsl");
-        let timer = Clock::new(16);
+        let timer = Clock::new(Self::UDATES_PER_SECOND);
         let running = true;
 
-        let camera = Camera::new([8., 0., 0.]); //, DEFAULT_WIDTH as f64/ DEFAULT_HEIGHT as f64);
+        let camera = Camera::new([8., 0., 0.]);
         let mut ecs_manager = ECSManager::new();
 
-        let texture_path = Path::new("img").join("texture").join("atlas.png");
-        let texture_storage =
-            TextureStorage::new(&context.display, &texture_path, image::ImageFormat::Png, 16);
+        let assets = Path::new(env!("CARGO_WORKSPACE_DIR")).join("assets");
 
-        let player_pos = components::Position(camera.get_position());
+        let atlas_path = assets.join("img").join("texture").join("atlas.png");
+        let atlas =
+            texture::Array::from_atlas(context.display(), &atlas_path, image::ImageFormat::Png, 16)
+                .expect("Failed to create texture atlas");
+
+        let player_pos = components::Position(camera.position());
         let player_vel = components::Velocity(cgmath::Vector3::zero());
         let player_cam = components::Camera {
-            looking_at: camera.get_front(),
+            looking_at: camera.front(),
         };
         let player_controller = components::Controller::new();
 
@@ -103,17 +111,19 @@ impl Game {
         registry.setup();
         let registry = Arc::new(registry);
         let terrain_manager = TerrainManager::new(&registry);
+        let grab_mode = window::CursorGrabMode::Locked;
 
         Self {
             context,
             ecs_manager,
             terrain_manager,
-            texture_storage,
+            atlas,
             player,
             camera,
             registry,
             timer,
             running,
+            grab_mode,
         }
     }
 
@@ -134,7 +144,7 @@ impl Game {
                 .ecs_manager
                 .get_mut_world()
                 .write_resource::<DeltaTime>();
-            *dt = DeltaTime(to_secs(self.timer.max_ups) as f64 / 1e3);
+            *dt = DeltaTime::from_millis(Self::UDATES_PER_SECOND);
         }
 
         self.terrain_manager.setup_threaded(); //self.context.get_display());
@@ -157,7 +167,7 @@ impl Game {
                 .get_mut(self.player)
                 .expect("Failed to get Player Camera");
 
-            camera.looking_at = self.camera.get_front();
+            camera.looking_at = self.camera.front();
         }
 
         self.ecs_manager.run_systems();
@@ -168,8 +178,7 @@ impl Game {
             .get(self.player)
             .expect("Failed to get Player Position")
             .0;
-        self.camera.set_positon(position);
-        self.camera.update();
+        self.camera.update(position);
 
         let cam_chunk_pos = ChunkPosition::new(
             (position.x / (CHUNKSIZE - 1) as f64).floor() as isize,
@@ -179,12 +188,41 @@ impl Game {
         self.terrain_manager.update(cam_chunk_pos);
     }
 
+    pub fn toggle_grab_mode(&mut self) {
+        let grabbed = matches!(self.grab_mode, window::CursorGrabMode::Locked);
+        self.grab_mode = if grabbed {
+            window::CursorGrabMode::None
+        } else {
+            window::CursorGrabMode::Confined
+        };
+
+        let _ = self.context.window().set_cursor_grab(self.grab_mode);
+        self.context.window().set_cursor_visible(grabbed);
+    }
+
+    pub fn reset_mouse_position(&mut self) {
+        if matches!(self.grab_mode, window::CursorGrabMode::Locked) {
+            let size = self
+                .context
+                .window()
+                .inner_size()
+                .to_logical::<f64>(self.context.window().scale_factor());
+            self.context
+                .window()
+                .set_cursor_position(winit::dpi::LogicalPosition::new(
+                    size.width / 2.,
+                    size.height / 2.,
+                ))
+                .expect("Couldn't set the cursor position!");
+        }
+    }
+
     pub fn handle_input(&mut self, event: winit::event::Event<()>) {
         match event {
             Event::DeviceEvent { event, .. } => match event {
                 DeviceEvent::MouseMotion { delta } => {
-                    self.camera.handle_mouse(delta.0, delta.1);
-                    self.context.reset_mouse_position();
+                    self.camera.handle_mouse(delta);
+                    self.reset_mouse_position();
                 }
                 _ => (),
             },
@@ -194,17 +232,17 @@ impl Game {
                     if state == ElementState::Released {
                         let position = self
                             .camera
-                            .get_position()
+                            .position()
                             .cast::<f32>()
                             .expect("f64 to f32 failed");
                         let front = self
                             .camera
-                            .get_front()
+                            .front()
                             .cast::<f32>()
                             .expect("f64 to f32 failed");
-                        let mut ray = VoxelRay::new(position, position + front, 8);
+                        let mut ray = Ray::new(position, position + front, 8);
 
-                        if let Some((mut position, face)) = ray.until(|b, _f| {
+                        if let Some((mut position, face)) = ray.cast_until(|b, _f| {
                             if let Some((block, _)) = self.terrain_manager.block_at(b.x, b.y, b.z) {
                                 if block != 0 {
                                     return true;
@@ -243,7 +281,7 @@ impl Game {
                     match input.physical_key {
                         PhysicalKey::Code(KeyCode::KeyP) => {
                             if pressed {
-                                self.context.grab_mouse();
+                                self.toggle_grab_mode();
                             }
                         }
                         PhysicalKey::Code(KeyCode::Escape) => {
@@ -312,14 +350,13 @@ impl Game {
         // self.context.clear_color([0.5, 0.5, 0.5, 1.0]);
 
         let texture = self
-            .texture_storage
-            .get_array()
-            .sampled()
-            .magnify_filter(engine::glium::uniforms::MagnifySamplerFilter::Nearest)
-            .wrap_function(engine::glium::uniforms::SamplerWrapFunction::Repeat);
+            .atlas
+            .sampler()
+            .magnify_filter(MagnifySamplerFilter::Nearest)
+            .wrap_function(SamplerWrapFunction::Repeat);
         let perspective = cgmath::perspective(
             cgmath::Rad::from(cgmath::Deg(90f64)),
-            self.context.get_aspect_ratio(),
+            self.context.aspect_ratio(),
             0.1f64,
             1024f64,
         )
@@ -329,7 +366,7 @@ impl Game {
 
         let view = self
             .camera
-            .get_view()
+            .view()
             .cast::<f32>()
             .expect("Couldn't cast View f64 to f32");
         // .into();
@@ -338,10 +375,10 @@ impl Game {
         let frustum = Frustum::from_matrix4(projection.into()).expect("No frustum!");
         let view: [[f32; 4]; 4] = view.into();
         let perspective: [[f32; 4]; 4] = perspective.into();
-        let position = self.camera.get_position();
+        let position = self.camera.position();
 
         self.terrain_manager
-            .mesh_chunks(&self.context.display, self.timer.get_timer());
+            .mesh_chunks(self.context.display(), self.timer.inner());
         let mut meshes = self.terrain_manager.get_meshes().iter().collect::<Vec<_>>();
         //TODO: Benchmark this function and compare with render distance
         meshes.sort_by(|c1, c2| {
@@ -384,7 +421,7 @@ impl Game {
                 t: texture
             };
             self.context
-                .draw(mesh.0.get_vb(), mesh.0.get_ib(), &uniforms);
+                .draw(mesh.0.vertices(), mesh.0.indices(), &uniforms);
         }
 
         meshes.reverse(); // farthest to nearest
@@ -418,8 +455,8 @@ impl Game {
                         ..Default::default()
                     };
                     self.context.draw_with_params(
-                        transparent.get_vb(),
-                        transparent.get_ib(),
+                        transparent.vertices(),
+                        transparent.indices(),
                         &uniforms,
                         render_params,
                     );
@@ -427,16 +464,15 @@ impl Game {
             }
         }
 
-        let front = self.camera.get_front();
+        let front = self.camera.front();
         let position = position
             .cast::<f32>()
             .expect("Failed to cast Position to f32");
         let front = front.cast::<f32>().expect("Failed to cast Front to f32");
-        let mut ray = VoxelRay::new(position, position + front, 8);
-        let r_pos = ray.position;
-        let r_dir = ray.direction;
+        let mut ray = Ray::new(position, position + front, 8);
+        let inf_ray = Ray3::new(ray.origin(), ray.direction());
 
-        if let Some((position, _face)) = ray.until(|b, _f| {
+        if let Some((position, _face)) = ray.cast_until(|b, _f| {
             if let Some((block, data)) = self.terrain_manager.block_at(b.x, b.y, b.z) {
                 if block != 0 {
                     //not air
@@ -450,8 +486,6 @@ impl Game {
                             .expect("Couldn't retrieve mesh")
                             .get_hitbox();
                         let pos_v = Vector3::new(b.x.trunc(), b.y.trunc(), b.z.trunc());
-                        // println!("Hitbox: {:?} Point: {:?}", Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v), (b - (f.cast::<f32>().expect("i8 to f32 failed")/100.)));
-                        let inf_ray = Ray3::new(r_pos, r_dir);
                         let intersects =
                             inf_ray.intersects(&Aabb3::new(hitbox.min + pos_v, hitbox.max + pos_v));
                         if intersects {

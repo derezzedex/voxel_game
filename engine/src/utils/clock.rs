@@ -1,14 +1,10 @@
 use std::time;
 
-pub fn to_secs(dur: time::Duration) -> f64 {
-    dur.as_secs() as f64 + dur.subsec_nanos() as f64 / 1e6
-}
-
 pub struct Clock {
     previous: time::Instant,
-    pub accumulator: time::Duration,
-    pub elapsed: time::Duration,
-    pub max_ups: time::Duration,
+    accumulator: time::Duration,
+    elapsed: time::Duration,
+    max_ups: time::Duration,
 }
 
 impl Clock {
@@ -45,7 +41,7 @@ impl Clock {
         self.previous.elapsed()
     }
 
-    pub fn get_timer(&self) -> &time::Instant {
+    pub fn inner(&self) -> &time::Instant {
         &self.previous
     }
 }

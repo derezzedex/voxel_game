@@ -1,13 +1,13 @@
-use crate::mesh::DebugMeshData;
-use crate::ui::UIManager;
-use crate::{DebugVertex, Vertex};
+use crate::Vertex;
+use crate::hud;
+use crate::mesh::debug;
 use cgmath::Point3;
 
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
 use glium::uniforms::{AsUniformValue, Uniforms};
 use glium::winit::event_loop::EventLoop;
-use glium::winit::window::CursorGrabMode;
+use glium::winit::window::{CursorGrabMode, Window};
 use glium::{Surface, glutin, winit};
 use std::fs;
 use std::path::Path;
@@ -16,18 +16,16 @@ pub const DEFAULT_WIDTH: u32 = 1024;
 pub const DEFAULT_HEIGHT: u32 = 768;
 
 pub struct Context {
-    pub window: winit::window::Window,
-    pub display: glium::Display<WindowSurface>,
+    window: Window,
+    display: glium::Display<WindowSurface>,
     chunk_program: glium::Program,
     debug_program: glium::Program,
-    ui_manager: UIManager,
+    hud: hud::Renderer,
     window_dimensions: (u32, u32),
-    mouse_grab: winit::window::CursorGrabMode,
     render_params: glium::DrawParameters<'static>,
-    pub frame: Option<glium::Frame>,
+    frame: Option<glium::Frame>,
 }
 
-#[allow(dead_code)]
 impl Context {
     pub fn new(event_loop: &EventLoop<()>, title: &str, vert: &str, frag: &str) -> Self {
         let window_dimensions = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -92,21 +90,20 @@ impl Context {
         };
 
         let ui_path = Path::new("img").join("ui").join("crosshair.png");
-        let ui_manager = UIManager::new(&display, &ui_path, image::ImageFormat::Png);
+        let ui_manager = hud::Renderer::new(&display, &ui_path, image::ImageFormat::Png);
 
         let frame = None;
-        let mouse_grab = CursorGrabMode::Locked;
+
         window
-            .set_cursor_grab(mouse_grab)
+            .set_cursor_grab(CursorGrabMode::Locked)
             .expect("Couldn't grab the cursor!");
-        window.set_cursor_visible(matches!(mouse_grab, CursorGrabMode::Locked));
+        window.set_cursor_visible(false);
 
         Self {
             window,
             display,
-            ui_manager,
+            hud: ui_manager,
             window_dimensions,
-            mouse_grab,
             render_params,
             chunk_program,
             debug_program,
@@ -114,42 +111,20 @@ impl Context {
         }
     }
 
-    pub fn grab_mouse(&mut self) {
-        self.mouse_grab = if matches!(self.mouse_grab, CursorGrabMode::Locked) {
-            CursorGrabMode::None
-        } else {
-            CursorGrabMode::Confined
-        };
-        self.window
-            .set_cursor_grab(self.mouse_grab)
-            .expect("Couldn't grab the cursor!");
-        self.window
-            .set_cursor_visible(matches!(self.mouse_grab, CursorGrabMode::Locked));
+    pub fn window(&self) -> &Window {
+        &self.window
     }
 
-    pub fn reset_mouse_position(&mut self) {
-        if matches!(self.mouse_grab, CursorGrabMode::Locked) {
-            let (width, height) = self.window_dimensions();
-            self.window
-                .set_cursor_position(winit::dpi::LogicalPosition::new(
-                    width as f64 / 2.,
-                    height as f64 / 2.,
-                ))
-                .expect("Couldn't set the cursor position!");
-        }
+    pub fn display(&self) -> &glium::Display<WindowSurface> {
+        &self.display
     }
 
-    pub fn get_frame(&mut self) -> &mut glium::Frame {
+    pub fn frame(&mut self) -> &mut glium::Frame {
         self.frame.as_mut().expect("Couldn't get frame")
     }
 
-    pub fn window_dimensions(&self) -> (u32, u32) {
-        // self.frame.as_ref().expect("Couldn't get frame").get_dimensions()
-        self.window_dimensions
-    }
-
-    pub fn get_aspect_ratio(&self) -> f64 {
-        let (width, height) = self.window_dimensions();
+    pub fn aspect_ratio(&self) -> f64 {
+        let (width, height) = self.window_dimensions;
         width as f64 / height as f64
     }
 
@@ -157,7 +132,7 @@ impl Context {
         self.frame
             .as_mut()
             .unwrap()
-            .clear_color_srgb_and_depth((color[0], color[1], color[2], color[3]), 1.0);
+            .clear_color_and_depth((color[0], color[1], color[2], color[3]), 1.0);
     }
 
     pub fn draw_with_params<T: AsUniformValue, R: Uniforms>(
@@ -188,17 +163,14 @@ impl Context {
     }
 
     pub fn draw_ui(&mut self) {
-        let mesh = self.ui_manager.get_mesh();
-        let texture = self.ui_manager.get_sampled();
+        let mesh = self.hud.mesh();
+        let texture = self.hud.sampler();
         let projection: [[f32; 4]; 4] = cgmath::ortho(0., 10., 10., 0., 0., 1.).into();
         let size = cgmath::Matrix4::from_nonuniform_scale(0.1, 0.1, 0.);
         let position = cgmath::Matrix4::from_translation(cgmath::Vector3::new(9.7, 9.7, 0.));
         let model: [[f32; 4]; 4] = (position + size).into();
-        // for i in &model{
-        //     println!("{:?}", i);
-        // }
 
-        let uniforms = uniform! {
+        let uniforms = glium::uniform! {
             t: texture,
             p: projection,
             m: model
@@ -215,7 +187,7 @@ impl Context {
             .draw(
                 mesh.get_vb(),
                 mesh.get_ib(),
-                self.ui_manager.get_shader(),
+                self.hud.shader(),
                 &uniforms,
                 &render_params,
             )
@@ -229,10 +201,10 @@ impl Context {
         color: [f32; 4],
         uniforms: &glium::uniforms::UniformsStorage<T, R>,
     ) {
-        let mut mesh = DebugMeshData::new();
+        let mut mesh = debug::MeshData::new();
         let vertices = vec![
-            DebugVertex::new([from.x, from.y, from.z], color),
-            DebugVertex::new([to.x, to.y, to.z], color),
+            debug::Vertex::new([from.x, from.y, from.z], color),
+            debug::Vertex::new([to.x, to.y, to.z], color),
         ];
         mesh.add(vertices, vec![0, 1]);
         let mesh = mesh.build(&self.display, glium::index::PrimitiveType::LinesList);
@@ -246,8 +218,8 @@ impl Context {
             .as_mut()
             .unwrap()
             .draw(
-                mesh.get_vb(),
-                mesh.get_ib(),
+                mesh.vertices(),
+                mesh.indices(),
                 &self.debug_program,
                 uniforms,
                 &render_params,
@@ -262,21 +234,21 @@ impl Context {
         color: [f32; 4],
         uniforms: &glium::uniforms::UniformsStorage<T, R>,
     ) {
-        let mut mesh = DebugMeshData::new();
+        let mut mesh = debug::MeshData::new();
         let min = min.map(|p| p - (1. / 1000.));
         let max = max.map(|p| p + (1. / 1000.));
         mesh.add(
             vec![
                 // back
-                DebugVertex::new([min.x, min.y, min.z], color), // 0, back-left-bottom
-                DebugVertex::new([min.x, min.y, max.z], color), // 1, back-right-bottom
-                DebugVertex::new([min.x, max.y, max.z], color), // 2, back-right-top
-                DebugVertex::new([min.x, max.y, min.z], color), // 3, back-left-top
+                debug::Vertex::new([min.x, min.y, min.z], color), // 0, back-left-bottom
+                debug::Vertex::new([min.x, min.y, max.z], color), // 1, back-right-bottom
+                debug::Vertex::new([min.x, max.y, max.z], color), // 2, back-right-top
+                debug::Vertex::new([min.x, max.y, min.z], color), // 3, back-left-top
                 // front
-                DebugVertex::new([max.x, min.y, min.z], color), // 4, front-left-bottom
-                DebugVertex::new([max.x, min.y, max.z], color), // 5, front-right-bottom
-                DebugVertex::new([max.x, max.y, max.z], color), // 6, front-right-top
-                DebugVertex::new([max.x, max.y, min.z], color), // 7, front-left-top
+                debug::Vertex::new([max.x, min.y, min.z], color), // 4, front-left-bottom
+                debug::Vertex::new([max.x, min.y, max.z], color), // 5, front-right-bottom
+                debug::Vertex::new([max.x, max.y, max.z], color), // 6, front-right-top
+                debug::Vertex::new([max.x, max.y, min.z], color), // 7, front-left-top
             ],
             vec![
                 // back
@@ -305,8 +277,8 @@ impl Context {
             .as_mut()
             .unwrap()
             .draw(
-                mesh.get_vb(),
-                mesh.get_ib(),
+                mesh.vertices(),
+                mesh.indices(),
                 &self.debug_program,
                 uniforms,
                 &render_params,
@@ -327,34 +299,3 @@ impl Context {
             .expect("Couldn't finish frame!");
     }
 }
-
-// // top
-// DebugVertex::new([min.x, min.y, max.z], color),
-// DebugVertex::new([max.x, min.y, max.z], color),
-// DebugVertex::new([max.x, max.y, max.z], color),
-// DebugVertex::new([min.x, max.y, max.z], color),
-// // bottom
-// DebugVertex::new([min.x, max.y, min.z], color),
-// DebugVertex::new([max.x, max.y, min.z], color),
-// DebugVertex::new([max.x, min.y, min.z], color),
-// DebugVertex::new([min.x, min.y, min.z], color),
-// // right
-// DebugVertex::new([max.x, min.y, min.z], color),
-// DebugVertex::new([max.x, max.y, min.z], color),
-// DebugVertex::new([max.x, max.y, max.z], color),
-// DebugVertex::new([max.x, min.y, max.z], color),
-// // left
-// DebugVertex::new([min.x, min.y, max.z], color),
-// DebugVertex::new([min.x, max.y, max.z], color),
-// DebugVertex::new([min.x, max.y, min.z], color),
-// DebugVertex::new([min.x, min.y, min.z], color),
-// // front
-// DebugVertex::new([max.x, max.y, min.z], color),
-// DebugVertex::new([min.x, max.y, min.z], color),
-// DebugVertex::new([min.x, max.y, max.z], color),
-// DebugVertex::new([max.x, max.y, max.z], color),
-// // back
-// DebugVertex::new([max.x, min.y, max.z], color),
-// DebugVertex::new([min.x, min.y, max.z], color),
-// DebugVertex::new([min.x, min.y, min.z], color),
-// DebugVertex::new([max.x, min.y, min.z], color),

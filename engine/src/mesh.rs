@@ -1,4 +1,6 @@
-use crate::{DebugVertex, Direction, Vertex};
+pub mod debug;
+
+use crate::{Direction, Vertex};
 use cgmath::Point3;
 use glium::glutin::surface::WindowSurface;
 
@@ -236,12 +238,12 @@ impl MeshData {
     }
 
     pub fn build(&self, display: &glium::Display<WindowSurface>) -> Mesh {
-        let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])
-            .expect("Couldn't create VB");
+        let vb =
+            glium::vertex::VertexBuffer::new(display, &self.vertices).expect("Couldn't create VB");
         let ib = glium::IndexBuffer::new(
             display,
             glium::index::PrimitiveType::TrianglesList,
-            &self.indices[..],
+            &self.indices,
         )
         .expect("Couldn't create IB");
         Mesh { vb, ib }
@@ -254,59 +256,11 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<Vertex> {
+    pub fn vertices(&self) -> &glium::vertex::VertexBuffer<Vertex> {
         &self.vb
     }
 
-    pub fn get_ib(&self) -> &glium::index::IndexBuffer<u32> {
-        &self.ib
-    }
-}
-
-#[derive(Clone)]
-pub struct DebugMeshData {
-    pub vertices: Vec<DebugVertex>,
-    pub indices: Vec<u32>,
-}
-
-impl DebugMeshData {
-    pub fn new() -> Self {
-        Self {
-            vertices: Vec::new(),
-            indices: Vec::new(),
-        }
-    }
-
-    pub fn add(&mut self, vertices: Vec<DebugVertex>, indices: Vec<u32>) {
-        self.vertices.extend_from_slice(&vertices);
-        self.indices.extend_from_slice(&indices);
-    }
-
-    pub fn build(
-        &self,
-        display: &glium::Display<WindowSurface>,
-        primitive: glium::index::PrimitiveType,
-    ) -> DebugMesh {
-        let vb = glium::vertex::VertexBuffer::new(display, &self.vertices[..])
-            .expect("Couldn't create VB");
-        let ib = glium::IndexBuffer::new(display, primitive, &self.indices[..])
-            .expect("Couldn't create IB");
-
-        DebugMesh { vb, ib }
-    }
-}
-
-pub struct DebugMesh {
-    vb: glium::vertex::VertexBuffer<DebugVertex>,
-    ib: glium::index::IndexBuffer<u32>,
-}
-
-impl DebugMesh {
-    pub fn get_vb(&self) -> &glium::vertex::VertexBuffer<DebugVertex> {
-        &self.vb
-    }
-
-    pub fn get_ib(&self) -> &glium::index::IndexBuffer<u32> {
+    pub fn indices(&self) -> &glium::index::IndexBuffer<u32> {
         &self.ib
     }
 }

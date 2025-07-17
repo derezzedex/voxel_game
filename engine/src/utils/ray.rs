@@ -1,16 +1,17 @@
 use cgmath::{InnerSpace, Point3, Vector3};
 
 pub const HALF_VOXEL: f32 = 0.5;
-pub struct VoxelRay {
-    pub position: Point3<f32>,
-    pub direction: Vector3<f32>,
+
+pub struct Ray {
+    position: Point3<f32>,
+    direction: Vector3<f32>,
     length: usize,
 }
 
-impl VoxelRay {
+impl Ray {
     pub fn new(position: Point3<f32>, destination: Point3<f32>, length: usize) -> Self {
-        // let position = position + Vector3::new(HALF_VOXEL, HALF_VOXEL, HALF_VOXEL);
         let direction = (destination - position).normalize();
+
         Self {
             position,
             direction,
@@ -18,8 +19,16 @@ impl VoxelRay {
         }
     }
 
+    pub fn origin(&self) -> Point3<f32> {
+        self.position
+    }
+
+    pub fn direction(&self) -> Vector3<f32> {
+        self.direction
+    }
+
     //https://www.gamedev.net/forums/topic/624201-voxel-traversal-problem/
-    pub fn until<T: Fn(Point3<f32>, Vector3<i8>) -> bool>(
+    pub fn cast_until<T: Fn(Point3<f32>, Vector3<i8>) -> bool>(
         &mut self,
         callback: T,
     ) -> Option<(Point3<f32>, Vector3<i8>)> {

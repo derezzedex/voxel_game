@@ -1,62 +1,80 @@
 use glium::glutin::surface::WindowSurface;
+use glium::texture::RawImage2d;
+use glium::texture::TextureCreationError;
+use glium::texture::srgb_texture2d_array::SrgbTexture2dArray;
+use glium::uniforms::Sampler;
 use image::GenericImageView;
-use std::io::Cursor;
+use std::fs::File;
+use std::io::{self, BufReader};
 use std::path::Path;
 
-pub type TextureArray = glium::texture::srgb_texture2d_array::SrgbTexture2dArray;
-pub type RawImage<'a, T> = glium::texture::RawImage2d<'a, T>;
-
-#[allow(dead_code)]
-pub struct TextureStorage {
-    texture_array: TextureArray,
-    image_dimensions: (u32, u32),
-    tile_size: u32,
+#[derive(Debug)]
+pub enum Error {
+    IO(io::Error),
+    Image(image::ImageError),
+    Graphics(TextureCreationError),
 }
 
-impl TextureStorage {
-    pub fn new(
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Self::IO(error)
+    }
+}
+
+impl From<image::ImageError> for Error {
+    fn from(error: image::ImageError) -> Self {
+        Self::Image(error)
+    }
+}
+
+impl From<TextureCreationError> for Error {
+    fn from(error: TextureCreationError) -> Self {
+        Self::Graphics(error)
+    }
+}
+
+pub struct Array {
+    raw: SrgbTexture2dArray,
+}
+
+impl Array {
+    pub fn from_atlas(
         display: &glium::Display<WindowSurface>,
-        image_path: &Path,
-        image_type: image::ImageFormat,
+        path: &Path,
+        kind: image::ImageFormat,
         tile_size: u32,
-    ) -> Self {
-        let path = Path::new(env!("CARGO_WORKSPACE_DIR"))
-            .join("assets")
-            .join(image_path);
+    ) -> Result<Self, Error> {
+        let file = File::open(path)?;
+        let bytes = BufReader::new(file);
+        let image = image::load(bytes, kind)?.to_rgba8();
 
-        let data = std::fs::read(path).expect("Couldn't read image!");
-        let bytes = Cursor::new(&data[..]);
-        let image = image::load(bytes, image_type)
-            .expect("Couldn't load image!")
-            .to_rgba8();
-        let image_dimensions = image.dimensions();
-        let mut textures = Vec::new();
+        let (width, height) = image.dimensions();
+        let total = (width / tile_size) * (height / tile_size);
+        let mut textures = Vec::with_capacity(total as usize);
 
-        //load sprites from image as atlas
-        for x in 0..(image_dimensions.0 / tile_size) {
-            for y in 0..(image_dimensions.1 / tile_size) {
+        for x in 0..(width / tile_size) {
+            for y in 0..(height / tile_size) {
                 let sub_image = image
                     .view(x * tile_size, y * tile_size, tile_size, tile_size)
                     .to_image();
-                // sub_image.save(format!("C:\\Users\\derezzedex\\Pictures\\atlas\\{}_{}.png", x, y));
-                let texture =
-                    RawImage::from_raw_rgba_reversed(&sub_image.into_raw(), (tile_size, tile_size));
+                let texture = RawImage2d::from_raw_rgba_reversed(
+                    &sub_image.into_raw(),
+                    (tile_size, tile_size),
+                );
                 textures.push(texture);
             }
         }
 
-        let texture_array =
-            TextureArray::with_mipmaps(display, textures, glium::texture::MipmapsOption::NoMipmap)
-                .unwrap();
+        let raw = SrgbTexture2dArray::with_mipmaps(
+            display,
+            textures,
+            glium::texture::MipmapsOption::NoMipmap,
+        )?;
 
-        Self {
-            texture_array,
-            image_dimensions,
-            tile_size,
-        }
+        Ok(Self { raw })
     }
 
-    pub fn get_array(&self) -> &TextureArray {
-        &self.texture_array
+    pub fn sampler(&self) -> Sampler<'_, SrgbTexture2dArray> {
+        self.raw.sampled()
     }
 }

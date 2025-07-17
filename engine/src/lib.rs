@@ -1,6 +1,9 @@
-#![allow(deprecated)] // Since the implement_vertex will be removed in the future, for now I supress the warning
-#[macro_use]
-pub extern crate glium;
+pub mod hud;
+pub mod mesh;
+pub mod renderer;
+pub mod utils;
+
+pub use glium;
 
 use cgmath::{InnerSpace, Vector3};
 
@@ -23,21 +26,7 @@ impl Vertex {
     }
 }
 
-implement_vertex!(Vertex, position, uv, block, tint);
-
-#[derive(Copy, Clone, Debug)]
-pub struct DebugVertex {
-    pub position: [f32; 3],
-    pub color: [f32; 4],
-}
-
-impl DebugVertex {
-    pub const fn new(position: [f32; 3], color: [f32; 4]) -> Self {
-        Self { position, color }
-    }
-}
-
-implement_vertex!(DebugVertex, position, color);
+glium::implement_vertex!(Vertex, position, uv, block, tint);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(usize)]
@@ -72,12 +61,6 @@ impl From<Vector3<f32>> for Direction {
             Vector3 { y: -1., .. } => Direction::Bottom,
             Vector3 { z: 1., .. } => Direction::North,
             Vector3 { z: -1., .. } | _ => Direction::South,
-            // _ => {println!("v: {:?}", v); panic!("More than one direction found!")},
         }
     }
 }
-
-pub mod mesh;
-pub mod renderer;
-pub mod ui;
-pub mod utils;
