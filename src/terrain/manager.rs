@@ -5,8 +5,8 @@ use super::chunk::{Chunk, ChunkPosition};
 use super::mesher::*;
 use crate::registry::Registry;
 use engine::Direction;
-use engine::glium::glutin::surface::WindowSurface;
 use engine::mesh::{Mesh, MeshData};
+use engine::renderer;
 
 use cgmath::{Point3, Vector3};
 use dashmap::DashMap;
@@ -151,11 +151,7 @@ impl TerrainManager {
         }
     }
 
-    pub fn mesh_chunks(
-        &mut self,
-        display: &engine::glium::Display<WindowSurface>,
-        timer: &std::time::Instant,
-    ) {
+    pub fn mesh_chunks(&mut self, display: &renderer::Display, timer: &std::time::Instant) {
         //temp
         let mut remove_list = Vec::new();
         for c_ref in self.chunks.clone().iter() {

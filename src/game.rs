@@ -3,17 +3,16 @@ use crate::registry::Registry;
 use crate::terrain::chunk::{CHUNKSIZE, ChunkPosition};
 use crate::terrain::manager::LOAD_DISTANCE;
 use crate::terrain::manager::TerrainManager;
-use engine::glium::uniforms::{MagnifySamplerFilter, SamplerWrapFunction};
-use engine::glium::winit;
-use engine::glium::winit::event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent};
-use engine::glium::winit::event_loop::EventLoop;
-use engine::glium::winit::keyboard::{KeyCode, PhysicalKey};
-use engine::glium::winit::window;
-use engine::renderer::Context;
+use engine::renderer::Renderer;
 use engine::utils::camera::Camera;
 use engine::utils::clock::*;
 use engine::utils::ray::Ray;
 use engine::utils::texture;
+use engine::{renderer, winit};
+use winit::event::{DeviceEvent, ElementState, Event, MouseButton, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::keyboard::{KeyCode, PhysicalKey};
+use winit::window;
 
 use crate::ecs::components;
 use crate::ecs::systems::*;
@@ -61,7 +60,7 @@ pub fn run(title: &str) {
 
 #[allow(dead_code)]
 pub struct Game {
-    context: Context,
+    context: Renderer,
     ecs_manager: ECSManager,
     registry: Arc<Registry>,
     terrain_manager: TerrainManager,
@@ -77,7 +76,7 @@ impl Game {
     const UDATES_PER_SECOND: u64 = 16;
 
     pub fn new(event_loop: &EventLoop<()>, title: &str) -> Self {
-        let context = Context::new(event_loop, title, "vertex.glsl", "fragment.glsl");
+        let context = Renderer::new(event_loop, title, "vertex.glsl", "fragment.glsl");
         let timer = Clock::new(Self::UDATES_PER_SECOND);
         let running = true;
 
@@ -347,34 +346,25 @@ impl Game {
     pub fn render(&mut self) {
         self.context.new_frame();
         self.context.clear_color([0.3, 0.45, 0.65, 1.0]);
-        // self.context.clear_color([0.5, 0.5, 0.5, 1.0]);
 
-        let texture = self
-            .atlas
-            .sampler()
-            .magnify_filter(MagnifySamplerFilter::Nearest)
-            .wrap_function(SamplerWrapFunction::Repeat);
+        let texture = self.atlas.sampler();
         let perspective = cgmath::perspective(
             cgmath::Rad::from(cgmath::Deg(90f64)),
             self.context.aspect_ratio(),
             0.1f64,
             1024f64,
         )
-        .cast::<f32>() // Casts internal f64 to f32, since 'double' support in video grahics card is fairly recent...
+        .cast::<f32>()
         .expect("Couldn't cast Perspective f64 to f32");
-        // .into();
 
         let view = self
             .camera
             .view()
             .cast::<f32>()
             .expect("Couldn't cast View f64 to f32");
-        // .into();
 
         let projection = perspective * view;
         let frustum = Frustum::from_matrix4(projection.into()).expect("No frustum!");
-        let view: [[f32; 4]; 4] = view.into();
-        let perspective: [[f32; 4]; 4] = perspective.into();
         let position = self.camera.position();
 
         self.terrain_manager
@@ -410,16 +400,13 @@ impl Game {
             }
             inside_frustum.push(position.clone());
 
-            let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
+            let model = cgmath::Matrix4::from_translation(
                 [model_position.x, model_position.y, model_position.z].into(),
             )
             .into();
-            let uniforms = engine::glium::uniform! {
-                m: model,
-                v: view,
-                p: perspective,
-                t: texture
-            };
+
+            let uniforms = renderer::uniforms(model, view, perspective, texture);
+
             self.context
                 .draw(mesh.0.vertices(), mesh.0.indices(), &uniforms);
         }
@@ -433,32 +420,16 @@ impl Game {
                     let model_position =
                         Point3::new(position.x as f32, position.y as f32, position.z as f32)
                             * CHUNKSIZE as f32;
-                    let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation(
+                    let model = cgmath::Matrix4::from_translation(
                         [model_position.x, model_position.y, model_position.z].into(),
-                    )
-                    .into();
-                    let uniforms = engine::glium::uniform! {
-                        m: model,
-                        v: view,
-                        p: perspective,
-                        t: texture
-                    };
+                    );
 
-                    let render_params = engine::glium::DrawParameters {
-                        depth: engine::glium::Depth {
-                            test: engine::glium::DepthTest::IfLessOrEqual,
-                            write: true,
-                            ..Default::default()
-                        },
-                        blend: engine::glium::Blend::alpha_blending(),
-                        backface_culling: engine::glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
-                        ..Default::default()
-                    };
-                    self.context.draw_with_params(
+                    let uniforms = renderer::uniforms(model, view, perspective, texture);
+
+                    self.context.draw_transparent(
                         transparent.vertices(),
                         transparent.indices(),
                         &uniforms,
-                        render_params,
                     );
                 }
             }
@@ -503,7 +474,6 @@ impl Game {
                 .terrain_manager
                 .block_at(position.x, position.y, position.z)
             {
-                // let mut selected = MeshData::new();
                 let hitbox = self
                     .registry
                     .mesh_registry()
@@ -512,14 +482,9 @@ impl Game {
                     .get_hitbox();
                 let position =
                     Vector3::new(position.x.trunc(), position.y.trunc(), position.z.trunc());
-                let model: [[f32; 4]; 4] =
-                    cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.)).into();
-                let uniforms = engine::glium::uniform! {
-                    m: model,
-                    v: view,
-                    p: perspective,
-                    t: texture
-                };
+                let model = cgmath::Matrix4::from_translation(Vector3::new(0., 0., 0.));
+                let uniforms = renderer::uniforms(model, view, perspective, texture);
+
                 self.context.draw_hitbox(
                     hitbox.min + position,
                     hitbox.max + position,
@@ -528,19 +493,6 @@ impl Game {
                 );
             }
         }
-
-        // let model: [[f32; 4]; 4] = cgmath::Matrix4::from_translation([0., 0., 0.].into())
-        // .into();
-        // let uniforms = uniform! {
-        //     m: model,
-        //     v: view,
-        //     p: perspective
-        // };
-        // let start = (position+front).cast::<f32>().expect("nono");
-        // let end = (position+front*8.).cast::<f32>().expect("no2");
-        // self.context.draw_line(start, end + Vector3::new(0.5, 0., 0.), [1., 0., 0., 1.], &uniforms); // x - red
-        // self.context.draw_line(start, end + Vector3::new(0., 0.5, 0.), [0., 1., 0., 1.], &uniforms); // y - green
-        // self.context.draw_line(start, end + Vector3::new(0., 0., 0.5), [0., 0., 1., 1.], &uniforms); // z - blue
 
         self.context.draw_ui();
         self.context.finish_frame();

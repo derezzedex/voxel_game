@@ -1,11 +1,14 @@
 use crate::Vertex;
 use crate::hud;
 use crate::mesh::debug;
+use cgmath::Matrix4;
 use cgmath::Point3;
 
 use glium::backend::glutin::SimpleWindowBuilder;
 use glium::glutin::surface::WindowSurface;
-use glium::uniforms::{AsUniformValue, Uniforms};
+use glium::texture::SrgbTexture2dArray;
+use glium::uniforms::Sampler;
+use glium::uniforms::Uniforms;
 use glium::winit::event_loop::EventLoop;
 use glium::winit::window::{CursorGrabMode, Window};
 use glium::{Surface, glutin, winit};
@@ -14,10 +17,11 @@ use std::path::Path;
 
 pub const DEFAULT_WIDTH: u32 = 1024;
 pub const DEFAULT_HEIGHT: u32 = 768;
+pub type Display = glium::Display<WindowSurface>;
 
-pub struct Context {
+pub struct Renderer {
     window: Window,
-    display: glium::Display<WindowSurface>,
+    display: Display,
     chunk_program: glium::Program,
     debug_program: glium::Program,
     hud: hud::Renderer,
@@ -26,7 +30,7 @@ pub struct Context {
     frame: Option<glium::Frame>,
 }
 
-impl Context {
+impl Renderer {
     pub fn new(event_loop: &EventLoop<()>, title: &str, vert: &str, frag: &str) -> Self {
         let window_dimensions = (DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
@@ -115,7 +119,7 @@ impl Context {
         &self.window
     }
 
-    pub fn display(&self) -> &glium::Display<WindowSurface> {
+    pub fn display(&self) -> &Display {
         &self.display
     }
 
@@ -135,25 +139,35 @@ impl Context {
             .clear_color_and_depth((color[0], color[1], color[2], color[3]), 1.0);
     }
 
-    pub fn draw_with_params<T: AsUniformValue, R: Uniforms>(
+    pub fn draw_transparent<R: Uniforms>(
         &mut self,
         vb: &glium::VertexBuffer<Vertex>,
         ib: &glium::IndexBuffer<u32>,
-        u: &glium::uniforms::UniformsStorage<T, R>,
-        r: glium::DrawParameters,
+        u: &R,
     ) {
+        let draw_parameters = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLessOrEqual,
+                write: true,
+                ..Default::default()
+            },
+            blend: glium::Blend::alpha_blending(),
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
+            ..Default::default()
+        };
+
         self.frame
             .as_mut()
             .unwrap()
-            .draw(vb, ib, &self.chunk_program, u, &r)
+            .draw(vb, ib, &self.chunk_program, u, &draw_parameters)
             .unwrap();
     }
 
-    pub fn draw<T: AsUniformValue, R: Uniforms>(
+    pub fn draw<U: Uniforms>(
         &mut self,
         vb: &glium::VertexBuffer<Vertex>,
         ib: &glium::IndexBuffer<u32>,
-        u: &glium::uniforms::UniformsStorage<T, R>,
+        u: &U,
     ) {
         self.frame
             .as_mut()
@@ -194,12 +208,12 @@ impl Context {
             .unwrap();
     }
 
-    pub fn draw_line<T: AsUniformValue, R: Uniforms>(
+    pub fn draw_line<U: Uniforms>(
         &mut self,
         from: Point3<f32>,
         to: Point3<f32>,
         color: [f32; 4],
-        uniforms: &glium::uniforms::UniformsStorage<T, R>,
+        uniforms: &U,
     ) {
         let mut mesh = debug::MeshData::new();
         let vertices = vec![
@@ -227,12 +241,12 @@ impl Context {
             .unwrap();
     }
 
-    pub fn draw_hitbox<T: AsUniformValue, R: Uniforms>(
+    pub fn draw_hitbox<U: Uniforms>(
         &mut self,
         min: Point3<f32>,
         max: Point3<f32>,
         color: [f32; 4],
-        uniforms: &glium::uniforms::UniformsStorage<T, R>,
+        uniforms: &U,
     ) {
         let mut mesh = debug::MeshData::new();
         let min = min.map(|p| p - (1. / 1000.));
@@ -297,5 +311,23 @@ impl Context {
             .unwrap()
             .finish()
             .expect("Couldn't finish frame!");
+    }
+}
+
+pub fn uniforms(
+    model: Matrix4<f32>,
+    view: Matrix4<f32>,
+    perspective: Matrix4<f32>,
+    texture: Sampler<'_, SrgbTexture2dArray>,
+) -> impl Uniforms {
+    let model: [[f32; 4]; 4] = model.into();
+    let view: [[f32; 4]; 4] = view.into();
+    let perspective: [[f32; 4]; 4] = perspective.into();
+
+    glium::uniform! {
+        m: model,
+        v: view,
+        p: perspective,
+        t: texture
     }
 }

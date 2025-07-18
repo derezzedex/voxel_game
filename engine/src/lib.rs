@@ -3,7 +3,7 @@ pub mod mesh;
 pub mod renderer;
 pub mod utils;
 
-pub use glium;
+pub use glium::winit;
 
 use cgmath::{InnerSpace, Vector3};
 

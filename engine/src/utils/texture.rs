@@ -2,7 +2,9 @@ use glium::glutin::surface::WindowSurface;
 use glium::texture::RawImage2d;
 use glium::texture::TextureCreationError;
 use glium::texture::srgb_texture2d_array::SrgbTexture2dArray;
+use glium::uniforms::MagnifySamplerFilter;
 use glium::uniforms::Sampler;
+use glium::uniforms::SamplerWrapFunction;
 use image::GenericImageView;
 use std::fs::File;
 use std::io::{self, BufReader};
@@ -75,6 +77,9 @@ impl Array {
     }
 
     pub fn sampler(&self) -> Sampler<'_, SrgbTexture2dArray> {
-        self.raw.sampled()
+        self.raw
+            .sampled()
+            .magnify_filter(MagnifySamplerFilter::Nearest)
+            .wrap_function(SamplerWrapFunction::Repeat)
     }
 }
